@@ -1,0 +1,3 @@
+home_assistant:
+  path: 127.0.0.1:8123
+  token: user_token
