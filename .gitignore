@@ -16,3 +16,5 @@
 
 *.swp
 *.swo
+bin/
+config.yaml
