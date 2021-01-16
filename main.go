@@ -9,6 +9,7 @@ import (
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
+	"github.com/nmaupu/gotomation/module"
 	"github.com/spf13/viper"
 )
 
@@ -65,6 +66,15 @@ func main() {
 	log.Printf("entity=%s, state=%s, domain=%s", entity.EntityID, entity.State.State, entity.Domain)
 	*/
 
+	test := module.NewFreeboxChecker(2*time.Second, "8.8.8.8", model.HassEntity{
+		EntityID: "living_fbx",
+		Domain:   "switch",
+	})
+	err := test.Start()
+	if err != nil {
+		log.Println("Error starting module FreeboxChecker")
+	}
+
 	// Main loop, ctrl+c to stop
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
@@ -85,6 +95,6 @@ func main() {
 
 // Event godoc
 func Event(msg model.HassAPIObject) {
-	event := msg.(*model.HassEvent)
-	log.Printf("Received: event, msg=%+v\n", event)
+	//event := msg.(*model.HassEvent)
+	//log.Printf("Received: event, msg=%+v\n", event)
 }

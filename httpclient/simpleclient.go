@@ -1,6 +1,7 @@
 package httpclient
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -106,4 +107,33 @@ func (c *SimpleClient) CheckServerAPIHealth() bool {
 	_, err1 := c.GetEntity("light", "escalier_switch")
 	_, err2 := c.GetEntity("light", "poutre_dimmer")
 	return err1 == nil || err2 == nil
+}
+
+// CallService calls a service
+func (c *SimpleClient) CallService(entity model.HassEntity, service string) error {
+	req, err := c.HassConfig.NewHTTPRequest(http.MethodPost, fmt.Sprintf("services/%s/%s", entity.Domain, service), nil)
+	if err != nil {
+		return err
+	}
+
+	reqBody, err := json.Marshal(map[string]string{
+		"entity_id": entity.GetEntityIDFullName(),
+	})
+	if err != nil {
+		return err
+	}
+	req.Body = ioutil.NopCloser(bytes.NewBuffer(reqBody))
+
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if 200 != resp.StatusCode {
+		return fmt.Errorf("HTTP response code is not 200, got=%d", resp.StatusCode)
+	}
+
+	return nil
 }
