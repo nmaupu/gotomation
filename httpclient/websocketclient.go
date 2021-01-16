@@ -18,6 +18,8 @@ import (
 const (
 	// ErrorCodeIDReuse is returned when id an already used ID
 	ErrorCodeIDReuse = "id_reuse"
+	// ErrorInvalidFormat is returned when the message is invalid or req id is 0
+	ErrorInvalidFormat = "invalid_format"
 )
 
 // ResponseHandlerSignature is the callback func signature when receiving a response from the server
@@ -91,6 +93,8 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 			}
 			return
 		}
+
+		log.Print(err)
 
 		time.Sleep(retryEvery)
 	}
@@ -297,7 +301,7 @@ func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 	if !result.Success {
 		after := 3 * time.Second
 
-		if result.Error.Code == ErrorCodeIDReuse {
+		if result.Error.Code == ErrorCodeIDReuse || result.Error.Code == ErrorInvalidFormat {
 			after = 10 * time.Millisecond // retry sooner than later
 			req.Data = req.Data.Duplicate(c.NextMessageID())
 		}
