@@ -14,8 +14,11 @@ var (
 	SimpleClientSingleton *SimpleClient
 )
 
-// InitSingletons inits all httpclient singletons
-func InitSingletons(config config.Gotomation) {
+// Init inits all httpclient singletons
+func Init(config config.Gotomation) {
+	if WebSocketClientSingleton != nil {
+		WebSocketClientSingleton.Stop()
+	}
 	WebSocketClientSingleton = NewWebSocketClient(
 		model.HassConfig{
 			URL:   url.URL{Scheme: "wss", Host: config.HomeAssistant.Host, Path: "api/websocket"},
