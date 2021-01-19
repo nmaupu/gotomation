@@ -5,18 +5,30 @@ import (
 	"time"
 
 	"github.com/go-ping/ping"
-	"github.com/nmaupu/gotomation/app"
+	"github.com/mitchellh/mapstructure"
+	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/model"
+)
+
+var (
+	_ (Checkable) = (*FreeboxChecker)(nil)
 )
 
 const (
 	defaultRebootEveryMin = 300 * time.Second
 )
 
+// FreeboxConfig is the configuration struct for FreeboxChecker module
+type FreeboxConfig struct {
+	Enabled       bool   `mapstructure:"enabled"`
+	PingHost      string `mapstructure:"ping_host"`
+	Interval      string `mapstructure:"interval"`
+	RestartEntity string `mapstructure:"restart_entity"`
+}
+
 // FreeboxChecker module pings a host at a regular interval and restart the freebox if it fails
 type FreeboxChecker struct {
-	// Every checks for connection every Every
-	Every time.Duration
+	Checker
 	// Host is the host to ping
 	Host string
 	// RebootEveryMin is the min duration between 2 reboots
@@ -26,57 +38,64 @@ type FreeboxChecker struct {
 	lastReboot      time.Time
 }
 
-// NewFreeboxChecker creates a pointer to a FreeboxChecker object
-func NewFreeboxChecker(every time.Duration, host string, entity model.HassEntity) *FreeboxChecker {
-	return &FreeboxChecker{
-		Every:           every,
-		Host:            host,
-		entityToRestart: entity,
-		RebootEveryMin:  defaultRebootEveryMin,
+// Configure reads the configuration and returns a new Checkable object
+func (c *FreeboxChecker) Configure(data interface{}) error {
+	config := FreeboxConfig{}
+	err := mapstructure.Decode(data, &config)
+	if err != nil {
+		return err
 	}
+
+	c.Host = config.PingHost
+	c.RebootEveryMin = defaultRebootEveryMin
+	c.entityToRestart = model.NewHassEntity(config.RestartEntity)
+
+	interval, err := time.ParseDuration(config.Interval)
+	if err != nil {
+		return err
+	}
+
+	c.Checker = Checker{
+		Enabled:  config.Enabled,
+		Interval: interval,
+		Checker:  c,
+	}
+
+	return nil
 }
 
-// Start starts the module
-func (c *FreeboxChecker) Start() error {
+// Check runs a single check
+func (c *FreeboxChecker) Check() {
 	if c.RebootEveryMin == 0 {
 		c.RebootEveryMin = defaultRebootEveryMin
 	}
+	log.Printf("[FreeboxChecker] Checking for freebox health (ping %s)", c.Host)
+	pinger, _ := ping.NewPinger(c.Host)
 
-	go func() {
-		for {
-			time.Sleep(c.Every)
+	pinger.Count = 1
+	pinger.Timeout = 2 * time.Second // timeout for all pings to be performed !
+	pinger.SetPrivileged(false)
 
-			log.Printf("[FreeboxChecker] Checking for freebox health (ping %s)", c.Host)
-			pinger, _ := ping.NewPinger(c.Host)
+	err := pinger.Run()
+	if err != nil {
+		log.Println("An error occurred creating pinger object")
+		return
+	}
 
-			pinger.Count = 1
-			pinger.Timeout = 2 * time.Second // timeout for all pings to be performed !
-			pinger.SetPrivileged(false)
-
-			err := pinger.Run()
-			if err != nil {
-				log.Println("An error occurred creating pinger object")
-				continue
-			}
-
-			stats := pinger.Statistics()
-			isTimeBetweenRebootOK := time.Now().Sub(c.lastReboot) > c.RebootEveryMin
-			if stats.PacketLoss == 0 {
-				log.Println("[FreeboxChecker] Freebox OK!")
-			} else if stats.PacketLoss > 0 && stats.PacketLoss != 100 {
-				log.Printf("[FreeboxChecker] Some packet are lost, statistics=%+v", stats)
-			} else if stats.PacketLoss == 100 && isTimeBetweenRebootOK {
-				log.Println("[FreeboxChecker] 100% packet lost, rebooting fbx...")
-				// Rebooting
-				app.GetSimpleClient().CallService(c.entityToRestart, "turn_off")
-				time.Sleep(1 * time.Second)
-				app.GetSimpleClient().CallService(c.entityToRestart, "turn_on")
-				c.lastReboot = time.Now()
-			} else if !isTimeBetweenRebootOK {
-				log.Printf("[FreeboxChecker] Fail but too soon to reboot... %+v", stats)
-			}
-		}
-	}()
-
-	return nil
+	stats := pinger.Statistics()
+	isTimeBetweenRebootOK := time.Now().Sub(c.lastReboot) > c.RebootEveryMin
+	if stats.PacketLoss == 0 {
+		log.Println("[FreeboxChecker] Freebox OK!")
+	} else if stats.PacketLoss > 0 && stats.PacketLoss != 100 {
+		log.Printf("[FreeboxChecker] Some packet are lost, statistics=%+v", stats)
+	} else if stats.PacketLoss == 100 && isTimeBetweenRebootOK {
+		log.Println("[FreeboxChecker] 100% packet lost, rebooting fbx...")
+		// Rebooting
+		httpclient.SimpleClientSingleton.CallService(c.entityToRestart, "turn_off")
+		time.Sleep(1 * time.Second)
+		httpclient.SimpleClientSingleton.CallService(c.entityToRestart, "turn_on")
+		c.lastReboot = time.Now()
+	} else if !isTimeBetweenRebootOK {
+		log.Printf("[FreeboxChecker] Fail but too soon to reboot... %+v", stats)
+	}
 }

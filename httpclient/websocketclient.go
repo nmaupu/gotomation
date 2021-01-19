@@ -106,9 +106,11 @@ func (c *WebSocketClient) NextMessageID() uint64 {
 	return c.id
 }
 
-// Close closes the communication with the server
-func (c *WebSocketClient) Close() {
-	c.conn.Close()
+// Stop stops the web socket connection and free resources
+func (c *WebSocketClient) Stop() {
+	if c.conn != nil {
+		c.conn.Close()
+	}
 }
 
 // Start connects, authenticates and listens to Home Assistant WebSocket API
@@ -158,14 +160,14 @@ func (c *WebSocketClient) SubscribeEvents(eventTypes ...string) {
 }
 
 // CallService is a generic function to call any service
-func (c *WebSocketClient) CallService(domain string, service string, entity string) {
+func (c *WebSocketClient) CallService(service string, entity model.HassEntity) {
 	d := model.HassService{
 		ID:      c.NextMessageID(),
 		Type:    "call_service",
-		Domain:  domain,
+		Domain:  entity.Domain,
 		Service: service,
 		ServiceData: model.HassServiceData{
-			EntityID: entity,
+			EntityID: entity.GetEntityIDFullName(),
 		},
 	}
 
@@ -189,7 +191,10 @@ func (c *WebSocketClient) LightToggle(entity string) {
 
 // LightSet calls turn_on/turn_off/toggle on a given light
 func (c *WebSocketClient) LightSet(service string, entity string) {
-	c.CallService("light", service, entity)
+	c.CallService(service, model.HassEntity{
+		Domain:   "light",
+		EntityID: entity,
+	})
 }
 
 // EnqueueRequest queues a request to be sent to the server

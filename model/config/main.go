@@ -7,4 +7,6 @@ type Gotomation struct {
 		Host  string `mapstructure:"host"`
 		Token string `mapstructure:"token"`
 	} `mapstructure:"home_assistant"`
+
+	Modules []map[string]interface{} `mapstructure:"modules"`
 }
