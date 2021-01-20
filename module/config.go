@@ -26,14 +26,14 @@ func Init(config config.Gotomation) {
 			var module Checkable
 
 			switch moduleName {
-			case "freeboxChecker":
-				module = new(FreeboxChecker)
+			case "internetChecker":
+				module = new(InternetChecker)
 			default:
 				log.Printf("Module %s not found", moduleName)
 				continue
 			}
 
-			if err := module.Configure(moduleConfig); err != nil {
+			if err := module.Configure(moduleConfig, module); err != nil {
 				log.Printf("Unable to decode configuration for module %s, err=%v", moduleName, err)
 				continue
 			}
@@ -57,6 +57,6 @@ func StopAllModules() {
 func StartAllModules() {
 	for name, module := range Modules {
 		log.Printf("Starting module %s", name)
-		module.Start()
+		module.Start(module.Check)
 	}
 }
