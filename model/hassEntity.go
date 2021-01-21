@@ -31,3 +31,19 @@ func NewHassEntity(entityID string) HassEntity {
 		EntityID: strings.Join(vals[1:], "."),
 	}
 }
+
+// Equals returns true if both entities are equals (same domain and entity_id), false otherwise
+func (e HassEntity) Equals(entity HassEntity) bool {
+	return e.Domain == entity.Domain && e.EntityID == entity.EntityID
+}
+
+// IsContained returns true if e is in entities, false otherwise
+func (e HassEntity) IsContained(entities []HassEntity) bool {
+	for _, entity := range entities {
+		if entity.Equals(e) {
+			return true
+		}
+	}
+
+	return false
+}

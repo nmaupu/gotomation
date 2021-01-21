@@ -10,7 +10,7 @@ import (
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
-	"github.com/nmaupu/gotomation/module"
+	"github.com/nmaupu/gotomation/smarthome"
 	"github.com/spf13/viper"
 )
 
@@ -32,7 +32,7 @@ func main() {
 	reloadConfig(vi)
 
 	// Adding callbacks for server communication, start and subscribe to events
-	httpclient.WebSocketClientSingleton.RegisterCallback("event", Event, model.HassEvent{})
+	httpclient.WebSocketClientSingleton.RegisterCallback("event", smarthome.EventCallback, model.HassEvent{})
 	httpclient.WebSocketClientSingleton.Start()
 	httpclient.WebSocketClientSingleton.SubscribeEvents("state_changed")
 	httpclient.WebSocketClientSingleton.SubscribeEvents("roku_command")
@@ -49,17 +49,11 @@ func main() {
 			select {
 			case <-time.After(time.Second):
 				httpclient.WebSocketClientSingleton.Stop()
-				module.StopAllModules()
+				smarthome.StopAllModules()
 			}
 			return
 		}
 	}
-}
-
-// Event godoc
-func Event(msg model.HassAPIObject) {
-	//event := msg.(*model.HassEvent)
-	//log.Printf("Received: event, msg=%+v\n", event)
 }
 
 func reloadConfig(vi *viper.Viper) {
@@ -79,5 +73,5 @@ func reloadConfig(vi *viper.Viper) {
 
 	// Init services and singletons
 	httpclient.Init(config)
-	module.Init(config)
+	smarthome.Init(config)
 }

@@ -1,8 +1,9 @@
-package module
+package smarthome
 
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,10 +22,25 @@ func MapstructureDecodeHook(from, to reflect.Type, data interface{}) (interface{
 	switch to {
 	case reflect.TypeOf((*time.Duration)(nil)).Elem():
 		result, err = time.ParseDuration(data.(string))
+	case reflect.TypeOf((*time.Time)(nil)).Elem():
+		toks := strings.Split(data.(string), ":")
+		if len(toks) != 3 {
+			return nil, fmt.Errorf("Unable to parse time %s", data.(string))
+		}
+
+		hour, errHour := strconv.Atoi(toks[0])
+		minute, errMinute := strconv.Atoi(toks[1])
+		second, errSecond := strconv.Atoi(toks[2])
+		if errHour != nil || errMinute != nil || errSecond != nil {
+			return nil, fmt.Errorf("Unable to parse time %s", data.(string))
+		}
+
+		now := time.Now()
+		result = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, second, 0, time.Local)
 	case reflect.TypeOf((*model.HassEntity)(nil)).Elem():
 		toks := strings.Split(data.(string), ".")
 		if len(toks) != 2 {
-			err = fmt.Errorf("Unable to parse entity %s", data.(string))
+			return nil, fmt.Errorf("Unable to parse entity %s", data.(string))
 		}
 		result = model.HassEntity{
 			Domain:   toks[0],
