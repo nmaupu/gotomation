@@ -278,7 +278,7 @@ func (c *WebSocketClient) workerDaemon() {
 				if err := json.Unmarshal(recv, &obj); err != nil {
 					log.Printf("Unable to unmarshal data, err=%v", err)
 				} else {
-					cb.F(obj)
+					go cb.F(obj)
 				}
 			}
 		} else {

@@ -1,4 +1,4 @@
-package module
+package smarthome
 
 import (
 	"log"

@@ -1,4 +1,4 @@
-package module
+package smarthome
 
 // Checkable is an interface to check something at a regular interval
 type Checkable interface {
