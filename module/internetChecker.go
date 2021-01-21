@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	_ (Checkable) = (*InternetChecker)(nil)
+	_ (Modular) = (*InternetChecker)(nil)
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 
 // InternetChecker module pings a host at a regular interval and restart the internet box if it fails
 type InternetChecker struct {
-	Checker `mapstructure:",squash"`
+	Module `mapstructure:",squash"`
 	// PingHost is the host to ping
 	PingHost string `mapstructure:"ping_host"`
 	// MaxRebootEvery is the min duration between 2 reboots

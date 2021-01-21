@@ -2,9 +2,7 @@ package module
 
 // Checkable is an interface to check something at a regular interval
 type Checkable interface {
-	Configure(data interface{}, destImpl Checkable) error
-	Check()
-	Start(checkFunc func())
+	Configure(data interface{}, module Modular) error
+	Start() error
 	Stop()
-	IsEnabled() bool
 }

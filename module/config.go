@@ -7,23 +7,24 @@ import (
 )
 
 var (
-	// Modules stores all checker modules
-	Modules map[string]Checkable
+	// Checkers stores all checkers
+	Checkers map[string]Checkable
 )
 
 // Init inits modules from configuration
 func Init(config config.Gotomation) {
-	if Modules != nil && len(Modules) > 0 {
+	if Checkers != nil && len(Checkers) > 0 {
 		StopAllModules()
 	}
 
 	// (Re)init modules map
-	Modules = make(map[string]Checkable, 0)
+	Checkers = make(map[string]Checkable, 0)
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
 
-			var module Checkable
+			checker := new(Checker)
+			var module Modular
 
 			switch moduleName {
 			case "internetChecker":
@@ -33,12 +34,12 @@ func Init(config config.Gotomation) {
 				continue
 			}
 
-			if err := module.Configure(moduleConfig, module); err != nil {
+			if err := checker.Configure(moduleConfig, module); err != nil {
 				log.Printf("Unable to decode configuration for module %s, err=%v", moduleName, err)
 				continue
 			}
 
-			Modules[moduleName] = module
+			Checkers[moduleName] = checker
 		}
 	}
 
@@ -47,7 +48,7 @@ func Init(config config.Gotomation) {
 
 // StopAllModules stops all modules
 func StopAllModules() {
-	for name, module := range Modules {
+	for name, module := range Checkers {
 		log.Printf("Stopping module %s", name)
 		module.Stop()
 	}
@@ -55,8 +56,11 @@ func StopAllModules() {
 
 // StartAllModules stops all modules
 func StartAllModules() {
-	for name, module := range Modules {
+	for name, module := range Checkers {
 		log.Printf("Starting module %s", name)
-		module.Start(module.Check)
+		err := module.Start()
+		if err != nil {
+			log.Printf("Unable to start %s, err=%v", name, err)
+		}
 	}
 }
