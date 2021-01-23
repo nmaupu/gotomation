@@ -2,8 +2,10 @@ package smarthome
 
 import (
 	"log"
+	"strconv"
 	"time"
 
+	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -21,9 +23,9 @@ type DehumidifierTrigger struct {
 	// TimeEnd is the time where monitoring ends
 	TimeEnd time.Time `mapstructure:"time_end"`
 	// ThresholdMin is the threshold which drives the dehumidifier on/off
-	ThresholdMin float32 `mapstructure:"threshold_min"`
+	ThresholdMin float64 `mapstructure:"threshold_min"`
 	// ThresholdMax is the threshold which drives the dehumidifier on/off
-	ThresholdMax float32 `mapstructure:"threshold_max"`
+	ThresholdMax float64 `mapstructure:"threshold_max"`
 	// ManualOverride is the input_boolean to deactivate manually the DehumidifierChecker automatic behavior
 	ManualOverride model.HassEntity `mapstructure:"manual_override"`
 	// ManualOverrideReset is the time where the ManualOverride input_boolean is automatically deactivated
@@ -36,5 +38,42 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 		return
 	}
 
-	log.Printf("[DehumidifierTrigger] Received: event, msg=%+v\n", event)
+	switch event.Event.Data.EntityID {
+	case t.ManualOverride.GetEntityIDFullName():
+		//log.Printf("[DehumidifierTrigger] Received: event, msg=%+v\n", event)
+		log.Printf("Manual override state: %s", event.Event.Data.NewState.State)
+
+	default:
+		//log.Printf("[DehumidifierTrigger] Received: event, msg=%+v\n", event)
+		currentHum, err := strconv.ParseFloat(event.Event.Data.NewState.State, 64)
+		if err != nil {
+			return // Should not happen
+		}
+
+		switchState, err := httpclient.SimpleClientSingleton.GetEntity(t.SwitchEntity.Domain, t.SwitchEntity.EntityID)
+		if err != nil {
+			log.Printf("[DehumidifierTrigger] Error, unable to get state for device %s, err=%v", t.SwitchEntity.GetEntityIDFullName(), err)
+		}
+
+		if currentHum >= t.ThresholdMax {
+			// in range or superior to ThresholdMax - ensure on
+			if switchState.State.State == "off" {
+				log.Printf("[DehumidifierTrigger] %f >= %f, switching on", currentHum, t.ThresholdMax)
+				httpclient.WebSocketClientSingleton.CallService("turn_on", t.SwitchEntity)
+			} else {
+				log.Printf("[DehumidifierTrigger] %f >= %f, already on, doing nothing", currentHum, t.ThresholdMax)
+			}
+		} else if currentHum <= t.ThresholdMin {
+			// in range or superior to ThresholdMax - ensure on
+			if switchState.State.State == "on" {
+				log.Printf("[DehumidifierTrigger] %f <= %f, switching off", currentHum, t.ThresholdMin)
+				httpclient.WebSocketClientSingleton.CallService("turn_off", t.SwitchEntity)
+			} else {
+				log.Printf("[DehumidifierTrigger] %f <= %f, already off, doing nothing", currentHum, t.ThresholdMin)
+			}
+		} else {
+			log.Printf("[DehumidifierTrigger] current_hum=%f, threshold_min=%f, threshold_max=%f, nothing to do", currentHum, t.ThresholdMin, t.ThresholdMax)
+		}
+	}
+
 }

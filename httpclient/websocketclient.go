@@ -171,6 +171,7 @@ func (c *WebSocketClient) CallService(service string, entity model.HassEntity) {
 		},
 	}
 
+	//log.Printf("CallService, payload=%+v", d)
 	c.EnqueueRequest(NewWebSocketRequest(d))
 }
 
