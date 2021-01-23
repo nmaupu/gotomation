@@ -6,6 +6,7 @@ import (
 
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
+	"github.com/robfig/cron"
 )
 
 var (
@@ -15,6 +16,8 @@ var (
 	Triggers map[string]Triggerable
 	// mutex is used to lock map access by one goroutine only
 	mutex sync.Mutex
+	// cron
+	crontab *cron.Cron
 )
 
 // Init inits modules from configuration
@@ -24,6 +27,7 @@ func Init(config config.Gotomation) {
 
 	initTriggers(&config)
 	initCheckers(&config)
+	initCrons(&config)
 }
 
 func initTriggers(config *config.Gotomation) {
@@ -127,4 +131,24 @@ func StartAllModules() {
 			log.Printf("Unable to start %s, err=%v", name, err)
 		}
 	}
+}
+
+func initCrons(config *config.Gotomation) {
+	if crontab != nil {
+		crontab.Stop()
+	}
+
+	crontab := cron.New()
+
+	for _, cronConfig := range config.Crons {
+		ce := new(CronEntry)
+		if err := ce.Configure(cronConfig, nil); err != nil {
+			log.Printf("Unable to decode configuration for cron, err=%v", err)
+			continue
+		}
+
+		crontab.AddFunc(ce.Expr, ce.GetActionFunc())
+	}
+
+	crontab.Start()
 }

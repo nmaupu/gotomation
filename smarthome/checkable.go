@@ -2,7 +2,7 @@ package smarthome
 
 // Checkable is an interface to check something at a regular interval
 type Checkable interface {
-	Configure(data interface{}, module Modular) error
+	Configurable
 	Start() error
 	Stop()
 }

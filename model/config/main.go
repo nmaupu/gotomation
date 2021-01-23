@@ -14,4 +14,7 @@ type Gotomation struct {
 
 	// Triggers configuration
 	Triggers []map[string]interface{} `mapstructure:"triggers"`
+
+	// Crons configuration
+	Crons []interface{} `mapstructure:"crons"`
 }
