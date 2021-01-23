@@ -42,6 +42,11 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 		log.Printf("Manual override state: %s", event.Event.Data.NewState.State)
 
 	default:
+		if !t.inTimeRange() {
+			log.Printf("Current time is not between %s and %s, nothing to do", t.TimeBeg.Format("15:04:05"), t.TimeEnd.Format("15:04:05"))
+			return
+		}
+
 		//log.Printf("[DehumidifierTrigger] Received: event, msg=%+v\n", event)
 		currentHum, err := strconv.ParseFloat(event.Event.Data.NewState.State, 64)
 		if err != nil {
@@ -74,4 +79,13 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 		}
 	}
 
+}
+
+// inTimeRange checks if current time is in between TimeBeg and TimeEnd
+func (t *DehumidifierTrigger) inTimeRange() bool {
+	now := time.Now().Local()
+	beg := time.Date(now.Year(), now.Month(), now.Day(), t.TimeBeg.Hour(), t.TimeBeg.Minute(), t.TimeBeg.Second(), 0, time.Local)
+	end := time.Date(now.Year(), now.Month(), now.Day(), t.TimeEnd.Hour(), t.TimeEnd.Minute(), t.TimeEnd.Second(), 0, time.Local)
+
+	return now.After(beg) && now.Before(end)
 }
