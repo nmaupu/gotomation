@@ -10,6 +10,7 @@ require (
 	github.com/gobwas/ws v1.0.4
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/prometheus/common v0.15.0
+	github.com/robfig/cron v1.2.0
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.4.0
 )

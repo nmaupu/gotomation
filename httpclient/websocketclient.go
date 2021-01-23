@@ -160,7 +160,8 @@ func (c *WebSocketClient) SubscribeEvents(eventTypes ...string) {
 }
 
 // CallService is a generic function to call any service
-func (c *WebSocketClient) CallService(service string, entity model.HassEntity) {
+// Deprecated: Might not work, to be debugged
+func (c *WebSocketClient) CallService(entity model.HassEntity, service string) {
 	d := model.HassService{
 		ID:      c.NextMessageID(),
 		Type:    "call_service",
@@ -173,29 +174,6 @@ func (c *WebSocketClient) CallService(service string, entity model.HassEntity) {
 
 	//log.Printf("CallService, payload=%+v", d)
 	c.EnqueueRequest(NewWebSocketRequest(d))
-}
-
-// LightTurnOn turns on a given light
-func (c *WebSocketClient) LightTurnOn(entity string) {
-	c.LightSet("turn_on", entity)
-}
-
-// LightTurnOff turns off a given light
-func (c *WebSocketClient) LightTurnOff(entity string) {
-	c.LightSet("turn_off", entity)
-}
-
-// LightToggle toggles a given light
-func (c *WebSocketClient) LightToggle(entity string) {
-	c.LightSet("toggle", entity)
-}
-
-// LightSet calls turn_on/turn_off/toggle on a given light
-func (c *WebSocketClient) LightSet(service string, entity string) {
-	c.CallService(service, model.HassEntity{
-		Domain:   "light",
-		EntityID: entity,
-	})
 }
 
 // EnqueueRequest queues a request to be sent to the server

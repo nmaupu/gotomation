@@ -1,6 +1,7 @@
 package smarthome
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/mitchellh/mapstructure"
@@ -16,14 +17,19 @@ type Trigger struct {
 }
 
 // Configure godoc
-func (t *Trigger) Configure(data interface{}, action Actionable) error {
-	t.Action = action
+func (t *Trigger) Configure(config interface{}, action interface{}) error {
+	var ok bool
+	t.Action, ok = action.(Actionable)
+	if !ok {
+		return fmt.Errorf("Cannot parse Actionable parameter")
+	}
+
 	mapstructureConfig := &mapstructure.DecoderConfig{
 		DecodeHook: MapstructureDecodeHook,
 		Result:     t.Action,
 	}
 	decoder, _ := mapstructure.NewDecoder(mapstructureConfig)
-	err := decoder.Decode(data)
+	err := decoder.Decode(config)
 	if err != nil {
 		return err
 	}

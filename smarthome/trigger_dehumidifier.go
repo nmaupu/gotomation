@@ -28,8 +28,6 @@ type DehumidifierTrigger struct {
 	ThresholdMax float64 `mapstructure:"threshold_max"`
 	// ManualOverride is the input_boolean to deactivate manually the DehumidifierChecker automatic behavior
 	ManualOverride model.HassEntity `mapstructure:"manual_override"`
-	// ManualOverrideReset is the time where the ManualOverride input_boolean is automatically deactivated
-	ManualOverrideResetTime time.Time `mapstructure:"manual_override_reset_time"`
 }
 
 // Trigger godoc
@@ -59,7 +57,7 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 			// in range or superior to ThresholdMax - ensure on
 			if switchState.State.State == "off" {
 				log.Printf("[DehumidifierTrigger] %f >= %f, switching on", currentHum, t.ThresholdMax)
-				httpclient.WebSocketClientSingleton.CallService("turn_on", t.SwitchEntity)
+				httpclient.SimpleClientSingleton.CallService(t.SwitchEntity, "turn_on")
 			} else {
 				log.Printf("[DehumidifierTrigger] %f >= %f, already on, doing nothing", currentHum, t.ThresholdMax)
 			}
@@ -67,7 +65,7 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 			// in range or superior to ThresholdMax - ensure on
 			if switchState.State.State == "on" {
 				log.Printf("[DehumidifierTrigger] %f <= %f, switching off", currentHum, t.ThresholdMin)
-				httpclient.WebSocketClientSingleton.CallService("turn_off", t.SwitchEntity)
+				httpclient.SimpleClientSingleton.CallService(t.SwitchEntity, "turn_off")
 			} else {
 				log.Printf("[DehumidifierTrigger] %f <= %f, already off, doing nothing", currentHum, t.ThresholdMin)
 			}

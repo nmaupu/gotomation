@@ -51,8 +51,13 @@ func (c *Checker) Stop() {
 }
 
 // Configure reads the configuration and returns a new Checkable object
-func (c *Checker) Configure(data interface{}, module Modular) error {
-	c.Module = module
+func (c *Checker) Configure(data interface{}, module interface{}) error {
+	var ok bool
+	c.Module, ok = module.(Modular)
+	if !ok {
+		return fmt.Errorf("Cannot parse Modular parameter")
+	}
+
 	mapstructureConfig := &mapstructure.DecoderConfig{
 		DecodeHook: MapstructureDecodeHook,
 		Result:     c.Module,
