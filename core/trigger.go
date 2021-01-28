@@ -18,6 +18,8 @@ type Trigger struct {
 
 // Configure godoc
 func (t *Trigger) Configure(config interface{}, action interface{}) error {
+	l := logging.NewLogger("Trigger.Configure")
+
 	var ok bool
 	t.Action, ok = action.(Actionable)
 	if !ok {
@@ -34,7 +36,7 @@ func (t *Trigger) Configure(config interface{}, action interface{}) error {
 		return err
 	}
 
-	logging.Trace("Trigger.Configure").Msgf("%+v", action)
+	l.Trace().Msgf("%+v", action)
 
 	return nil
 }

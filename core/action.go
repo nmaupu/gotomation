@@ -29,5 +29,6 @@ func (a Action) GetEntitiesForTrigger() []model.HassEntity {
 
 // Trigger godoc
 func (a Action) Trigger(e *model.HassEvent) {
-	logging.Error("Action.Trigger").Err(errors.New("Not implemented")).Msg("")
+	l := logging.NewLogger("Action.Trigger")
+	l.Error().Err(errors.New("Not implemented")).Msg("")
 }

@@ -28,6 +28,8 @@ func NewSimpleClient(hassConfig model.HassConfig) *SimpleClient {
 // GetEntities returns entities matching criteria
 // Regexp patterns can be used
 func (c *SimpleClient) GetEntities(domain string, name string) ([]model.HassEntity, error) {
+	l := logging.NewLogger("SimpleClient.GetEntities")
+
 	req, err := c.HassConfig.NewHTTPRequest(http.MethodGet, "states", nil)
 	if err != nil {
 		return nil, err
@@ -67,7 +69,7 @@ func (c *SimpleClient) GetEntities(domain string, name string) ([]model.HassEnti
 		patternName = `.*`
 	}
 	pattern := fmt.Sprintf("^%s\\.%s$", patternDomain, patternName)
-	logging.Trace("SimpleClient.GetEntities").Str("pattern", pattern).Msg("Checking entities with pattern")
+	l.Trace().Str("pattern", pattern).Msg("Checking entities with pattern")
 
 	re := regexp.MustCompile(pattern)
 	for _, state := range states {

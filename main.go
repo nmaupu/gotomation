@@ -23,6 +23,7 @@ type gotomationFlags struct {
 }
 
 func main() {
+	l := logging.NewLogger("main")
 	gotoFlags := handleFlags()
 
 	// Get config from file
@@ -53,7 +54,7 @@ func main() {
 	for range ticker.C {
 		select {
 		case <-interrupt:
-			logging.Info("main").Msg("Stopping service")
+			l.Info().Msg("Stopping service")
 			select {
 			case <-time.After(time.Second):
 				httpclient.WebSocketClientSingleton.Stop()
@@ -65,6 +66,7 @@ func main() {
 }
 
 func handleFlags() gotomationFlags {
+	l := logging.NewLogger("handleFlags")
 	gotoFlags := gotomationFlags{}
 	flag.StringVarP(&gotoFlags.configFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
 	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Set log verbosity level")
@@ -72,12 +74,12 @@ func handleFlags() gotomationFlags {
 	flag.Parse()
 
 	if gotoFlags.configFile == "" {
-		logging.Fatal("Configuration file not provided")
+		l.Fatal().Msg("Configuration file not provided")
 	}
 
 	err := logging.SetVerbosity(gotoFlags.verbosity)
 	if err != nil {
-		logging.Error("main").Err(err).Msg("Setting verbosity to default (info)")
+		l.Error().Err(err).Msg("Setting verbosity to default (info)")
 		logging.SetVerbosity("info")
 	}
 
@@ -85,18 +87,19 @@ func handleFlags() gotomationFlags {
 }
 
 func reloadConfig(vi *viper.Viper) {
+	l := logging.NewLogger("reloadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
 	config := config.Gotomation{}
 
 	if err := vi.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			logging.Fatal("main.reloadConfig").Msg("No config file available")
+			l.Fatal().Msg("Unable to read config file")
 		}
 
-		logging.Fatal("main.reloadConfig").Err(err).Msg("Cannot read config file")
+		l.Fatal().Err(err).Msg("Cannot read config file")
 	}
 
 	if err := vi.Unmarshal(&config); err != nil {
-		logging.Fatal("main.reloadConfig").Err(err).Msg("Unable to unmarshal config file")
+		l.Fatal().Err(err).Msg("Unable to unmarshal config file")
 	}
 
 	// Init services and singletons

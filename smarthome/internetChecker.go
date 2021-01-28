@@ -35,10 +35,11 @@ type InternetChecker struct {
 
 // Check runs a single check
 func (c *InternetChecker) Check() {
+	l := logging.NewLogger("InternetChecker.Check")
 	if c.MaxRebootEvery == 0 {
 		c.MaxRebootEvery = defaultRebootEveryMin
 	}
-	logging.Debug("InternetChecker.Check").
+	l.Debug().
 		Str("host", c.PingHost).
 		Msg("Checking for internet health")
 	pinger, _ := ping.NewPinger(c.PingHost)
@@ -49,20 +50,20 @@ func (c *InternetChecker) Check() {
 
 	err := pinger.Run()
 	if err != nil {
-		logging.Error("InternetChecker.Check").Err(err).Msg("An error occurred creating pinger object")
+		l.Error().Err(err).Msg("An error occurred creating pinger object")
 		return
 	}
 
 	stats := pinger.Statistics()
 	isTimeBetweenRebootOK := time.Now().Sub(c.lastReboot) > c.MaxRebootEvery
 	if stats.PacketLoss == 0 {
-		logging.Debug("InternetChecker.Check").Msg("Connection OK")
+		l.Debug().Msg("Connection OK")
 	} else if stats.PacketLoss > 0 && stats.PacketLoss != 100 {
-		logging.Warn("InternetChecker.Check").
+		l.Warn().
 			Str("statistics", fmt.Sprintf("%+v", stats)).
 			Msg("Some packet are lost")
 	} else if stats.PacketLoss == 100 && isTimeBetweenRebootOK {
-		logging.Error("InternetChecker.Check").Err(errors.New("Connection failed")).
+		l.Error().Err(errors.New("Connection failed")).
 			Msg("100% packet lost, rebooting router")
 		// Rebooting
 		httpclient.SimpleClientSingleton.CallService(c.RestartEntity, "turn_off")
@@ -70,7 +71,7 @@ func (c *InternetChecker) Check() {
 		httpclient.SimpleClientSingleton.CallService(c.RestartEntity, "turn_on")
 		c.lastReboot = time.Now()
 	} else if !isTimeBetweenRebootOK {
-		logging.Warn("InternetChecker.Check").
+		l.Warn().
 			Str("statistics", fmt.Sprintf("%+v", stats)).
 			Msg("Fail but too soon to reboot")
 	}
