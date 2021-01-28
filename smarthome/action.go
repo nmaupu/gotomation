@@ -1,8 +1,9 @@
 package smarthome
 
 import (
-	"fmt"
+	"errors"
 
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -28,5 +29,5 @@ func (a Action) GetEntitiesForTrigger() []model.HassEntity {
 
 // Trigger godoc
 func (a Action) Trigger(e *model.HassEvent) {
-	fmt.Println("Not implemented")
+	logging.Error("Action.Trigger").Err(errors.New("Not implemented")).Msg("")
 }

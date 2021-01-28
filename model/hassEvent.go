@@ -1,7 +1,10 @@
 package model
 
+import "github.com/rs/zerolog"
+
 var (
-	_ HassAPIObject = (*HassEvent)(nil)
+	_ HassAPIObject              = (*HassEvent)(nil)
+	_ zerolog.LogObjectMarshaler = (*HassEvent)(nil)
 )
 
 // HassEvent represents a Home Assistant event
@@ -42,4 +45,14 @@ func (e HassEvent) Duplicate(id uint64) HassAPIObject {
 	dup := e
 	dup.ID = id
 	return dup
+}
+
+// MarshalZerologObject godoc
+func (e HassEvent) MarshalZerologObject(event *zerolog.Event) {
+	event.
+		Uint64("id", e.ID).
+		Str("type", e.Type).
+		Str("entity_id", e.Event.Data.EntityID).
+		Str("old_state", e.Event.Data.OldState.State).
+		Str("new_state", e.Event.Data.NewState.State)
 }

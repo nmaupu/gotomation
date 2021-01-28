@@ -3,7 +3,6 @@ package httpclient
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net"
 	"reflect"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -84,7 +84,9 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 	atomic.StoreUint64(&c.id, 0)
 
 	for {
-		log.Println("Connecting to", c.URL.String())
+		logging.Info("mustConnect").
+			Str("url", c.URL.String()).
+			Msg("Trying to connect")
 		c.conn, _, _, err = ws.DefaultDialer.Dial(context.Background(), c.URL.String())
 		if err == nil {
 			// resubscribing to registered events
@@ -94,7 +96,9 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 			return
 		}
 
-		log.Print(err)
+		logging.Error("mustConnect").
+			Err(err).
+			Msg("An error occurred during connection")
 
 		time.Sleep(retryEvery)
 	}
@@ -136,7 +140,9 @@ func (c *WebSocketClient) Start() error {
 
 func (c *WebSocketClient) handleDisconnection() {
 	if r := recover(); r != nil {
-		log.Printf("Panic recovered, r=%v", r)
+		logging.Debug("handleDisconnection").
+			Interface("recover", r).
+			Msg("Panic recovered")
 		c.mustConnect(2 * time.Second)
 	}
 }
@@ -172,7 +178,9 @@ func (c *WebSocketClient) CallService(entity model.HassEntity, service string) {
 		},
 	}
 
-	//log.Printf("CallService, payload=%+v", d)
+	logging.Trace("CallService").
+		EmbedObject(d).
+		Msg("Calling service")
 	c.EnqueueRequest(NewWebSocketRequest(d))
 }
 
@@ -195,25 +203,37 @@ func (c *WebSocketClient) workerRequestsHandler() {
 	// Wait for message on the channel
 	for request := range c.requestChannel {
 		if !SimpleClientSingleton.CheckServerAPIHealth() {
-			log.Printf("Server is unavailable, requeuing id=%d, type=%s", request.Data.GetID(), request.Data.GetType())
+			logging.Warn("WebSocketClient.workerRequestsHandler").
+				Uint64("id", request.Data.GetID()).
+				Str("type", request.Data.GetType()).
+				Msg("Server is unavailable, requeuing")
 			c.requeueRequest(request, 2*time.Second)
 			continue
 		}
 
 		if !c.authenticated && !strings.HasPrefix(request.Data.GetType(), "auth") {
 			// not authenticated yet, requeue
-			log.Printf("Not authenticated yet, requeue request id=%d, type=%s", request.Data.GetID(), request.Data.GetType())
+			logging.Info("WebSocketClient.workerRequestsHandler").
+				Uint64("id", request.Data.GetID()).
+				Str("type", request.Data.GetType()).
+				Msg("Not authenticated yet, requeuing request")
 			c.requeueRequest(request, 1*time.Second)
 			continue
 		}
 
-		log.Printf("Processing request id=%d, type=%s", request.Data.GetID(), request.Data.GetType())
+		logging.Info("WebSocketClient.workerRequestsHandler").
+			Uint64("id", request.Data.GetID()).
+			Str("type", request.Data.GetType()).
+			Msg("Processing request")
 
 		data, _ := json.Marshal(request.Data)
-		log.Printf("Sending request to the WebSocket server, id=%d, type=%s", request.Data.GetID(), request.Data.GetType())
+		logging.Trace("WebSocketClient.workerRequestsHandler").
+			Uint64("id", request.Data.GetID()).
+			Str("type", request.Data.GetType()).
+			Msg("Sending request to the websocket server")
 		err := wsutil.WriteServerMessage(c.conn, ws.OpText, data)
 		if err != nil {
-			log.Printf("Error sending request to the server, requeuing. err=%v", err)
+			logging.Error("WebSocketClient.workerRequestsHandler").Err(err).Msg("Error sending request to the server, requeuing")
 			c.EnqueueRequest(request)
 		}
 
@@ -224,16 +244,15 @@ func (c *WebSocketClient) workerRequestsHandler() {
 }
 
 func (c *WebSocketClient) workerDaemon() {
+	defer c.handleDisconnection() // calling that when panicking
 	for {
 		var msg struct {
 			Type string `json:"type"`
 		}
 
-		//log.Printf("Waiting for a message from the server...")
-		defer c.handleDisconnection()                 // calling that when panicking
-		recv, _, err := wsutil.ReadServerData(c.conn) // ! this is a blocking func
+		recv, _, err := wsutil.ReadServerData(c.conn) // this is a blocking func
 		if err != nil {
-			log.Printf("Error reading from server, err=%+v", err)
+			logging.Error("WebSocketClient.workerDaemon").Err(err).Msg("Error reading from server")
 			c.conn.Close()
 			c.conn = nil
 			c.mustConnect(2 * time.Second)
@@ -242,9 +261,13 @@ func (c *WebSocketClient) workerDaemon() {
 			continue
 		}
 
+		logging.Trace("WebSocketClient.workerDaemon").
+			Bytes("data", recv).
+			Msg("Message received from the server")
+
 		err = json.Unmarshal(recv, &msg)
 		if err != nil {
-			log.Printf("Error receiving message from server, err=%v", err)
+			logging.Error("WebSocketClient.workerDaemon").Err(err).Msg("Error receiving message from server")
 			continue
 		}
 
@@ -255,14 +278,16 @@ func (c *WebSocketClient) workerDaemon() {
 			obj := reflect.New(reflect.TypeOf(cb.ConcreteType)).Interface().(model.HassAPIObject)
 			if cb.F != nil {
 				if err := json.Unmarshal(recv, &obj); err != nil {
-					log.Printf("Unable to unmarshal data, err=%v", err)
+					logging.Error("WebSocketClient.workerDaemon").Err(err).Msg("Unable to unmarshal data")
 				} else {
 					go cb.F(obj)
 				}
 			}
 		} else {
 			// No handler configured
-			log.Printf("No handler for message: %+v", string(recv))
+			logging.Warn("WebSocketClient.workerDaemon").
+				Str("message", string(recv)).
+				Msg("No handler defined")
 		}
 	}
 }
@@ -276,9 +301,15 @@ func (c *WebSocketClient) Authenticated() bool {
 func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 	result := data.(*model.HassResult)
 	if result.Success {
-		log.Printf("Result received for request id %d, success=%t", result.GetID(), result.Success)
+		logging.Debug("WebSocketClient.handleResult").
+			Uint64("id", result.GetID()).
+			Msg("Success result received for request")
 	} else {
-		log.Printf("Result received for request id %d, success=%t, errorCode=%s, errorMessage=%s", result.GetID(), result.Success, result.Error.Code, result.Error.Message)
+		logging.Warn("WebSocketClient.handleResult").
+			Uint64("id", result.GetID()).
+			Str("error_code", result.Error.Code).
+			Str("error_message", result.Error.Message).
+			Msg("Failed result received for request")
 	}
 
 	req := c.requestsTracker.Done(result.GetID())
@@ -295,17 +326,24 @@ func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 }
 
 func (c *WebSocketClient) handleAuthRequired(data model.HassAPIObject) {
-	log.Printf("Received %s, authenticating.", data.GetType())
+	logging.Info("WebSocketClient.handleAuthRequired").
+		Str("type", data.GetType()).
+		Msgf("Message received from server")
 	c.EnqueueRequest(NewWebSocketRequest(model.NewHassAuthentication(c.HassConfig.Token)))
 }
 
 func (c *WebSocketClient) handleAuthOK(data model.HassAPIObject) {
-	log.Printf("Received %s", data.GetType())
+	logging.Info("WebSocketClient.handleAuthOK").
+		Str("type", data.GetType()).
+		Msgf("Message received from server")
 	c.authenticated = true
 }
 
 func (c *WebSocketClient) handleAuthInvalid(data model.HassAPIObject) {
 	result := data.(*model.HassResult)
-	log.Printf("Received %s, reason=%s", result.GetType(), result.Message)
+	logging.Info("WebSocketClient.handleAuthInvalid").
+		Str("reason", result.Message).
+		Str("type", result.GetType()).
+		Msgf("Message received from server")
 	c.authenticated = false
 }

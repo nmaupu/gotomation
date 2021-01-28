@@ -1,7 +1,10 @@
 package model
 
+import "github.com/rs/zerolog"
+
 var (
-	_ HassAPIObject = (*HassService)(nil)
+	_ HassAPIObject              = (*HassService)(nil)
+	_ zerolog.LogObjectMarshaler = (*HassService)(nil)
 )
 
 // HassService is used to call the HASS service API
@@ -33,4 +36,14 @@ func (s HassService) Duplicate(id uint64) HassAPIObject {
 	dup := s
 	dup.ID = id
 	return dup
+}
+
+// MarshalZerologObject godoc
+func (s HassService) MarshalZerologObject(event *zerolog.Event) {
+	event.
+		Uint64("id", s.ID).
+		Str("type", s.Type).
+		Str("domain", s.Domain).
+		Str("service", s.Service).
+		Str("entity_id", s.ServiceData.EntityID)
 }

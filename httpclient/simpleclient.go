@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -66,7 +67,7 @@ func (c *SimpleClient) GetEntities(domain string, name string) ([]model.HassEnti
 		patternName = `.*`
 	}
 	pattern := fmt.Sprintf("^%s\\.%s$", patternDomain, patternName)
-	//log.Println("Using pattern:", pattern)
+	logging.Trace("SimpleClient.GetEntities").Str("pattern", pattern).Msg("Checking entities with pattern")
 
 	re := regexp.MustCompile(pattern)
 	for _, state := range states {

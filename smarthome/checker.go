@@ -2,10 +2,10 @@ package smarthome
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/nmaupu/gotomation/logging"
 )
 
 var (
@@ -68,7 +68,8 @@ func (c *Checker) Configure(data interface{}, module interface{}) error {
 		return err
 	}
 
-	log.Printf("%+v\n", module)
+	logging.Trace("Checker.Configure").
+		Str("module", fmt.Sprintf("%+v", module))
 
 	return nil
 }
