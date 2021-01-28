@@ -1,4 +1,4 @@
-package smarthome
+package core
 
 import (
 	"github.com/mitchellh/mapstructure"
