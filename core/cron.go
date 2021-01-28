@@ -20,6 +20,8 @@ type CronEntry struct {
 
 // Configure reads the configuration and returns a new Checkable object
 func (c *CronEntry) Configure(config interface{}, i interface{}) error {
+	l := logging.NewLogger("CronEntry.Configure")
+
 	mapstructureConfig := &mapstructure.DecoderConfig{
 		DecodeHook: MapstructureDecodeHook,
 		Result:     c,
@@ -30,7 +32,7 @@ func (c *CronEntry) Configure(config interface{}, i interface{}) error {
 		return err
 	}
 
-	logging.Trace("CronEntry.Configure").
+	l.Trace().
 		Msgf("%+v", c)
 
 	return nil

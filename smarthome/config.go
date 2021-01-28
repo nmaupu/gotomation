@@ -32,11 +32,12 @@ func Init(config config.Gotomation) {
 }
 
 func initTriggers(config *config.Gotomation) {
+	l := logging.NewLogger("initTriggers")
 	Triggers = make(map[string]core.Triggerable, 0)
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
-			logging.Info("initTriggers").
+			l.Info().
 				Str("trigger", triggerName).
 				Msg("Initializing triggers")
 			trigger := new(core.Trigger)
@@ -46,14 +47,14 @@ func initTriggers(config *config.Gotomation) {
 			case "dehumidifier":
 				action = new(DehumidifierTrigger)
 			default:
-				logging.Warn("config.initTriggers").
+				l.Warn().
 					Str("trigger", triggerName).
 					Msg("Trigger not found")
 				continue
 			}
 
 			if err := trigger.Configure(triggerConfig, action); err != nil {
-				logging.Error("config.initTriggers").Err(err).
+				l.Error().Err(err).
 					Str("trigger", triggerName).
 					Msg("Unable to decode configuration for trigger")
 				continue
@@ -90,6 +91,7 @@ func EventCallback(msg model.HassAPIObject) {
 }
 
 func initCheckers(config *config.Gotomation) {
+	l := logging.NewLogger("initCheckers")
 	if Checkers != nil && len(Checkers) > 0 {
 		StopAllModules()
 	}
@@ -99,7 +101,7 @@ func initCheckers(config *config.Gotomation) {
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
-			logging.Info("initCheckers").
+			l.Info().
 				Str("module", moduleName).
 				Msg("Initializing checkers")
 			checker := new(core.Checker)
@@ -109,14 +111,14 @@ func initCheckers(config *config.Gotomation) {
 			case "internetChecker":
 				module = new(InternetChecker)
 			default:
-				logging.Warn("config.initCheckers").
+				l.Warn().
 					Str("module", moduleName).
 					Msg("Module not found")
 				continue
 			}
 
 			if err := checker.Configure(moduleConfig, module); err != nil {
-				logging.Error("config.initCheckers").Err(err).
+				l.Error().Err(err).
 					Str("module", moduleName).
 					Msg("Unable to decode configuration for module")
 				continue
@@ -131,8 +133,9 @@ func initCheckers(config *config.Gotomation) {
 
 // StopAllModules stops all modules
 func StopAllModules() {
+	l := logging.NewLogger("StopAllModules")
 	for name, module := range Checkers {
-		logging.Info("config.StopAllModules").
+		l.Info().
 			Str("module", name).
 			Msg("Stopping module")
 		module.Stop()
@@ -141,13 +144,14 @@ func StopAllModules() {
 
 // StartAllModules stops all modules
 func StartAllModules() {
+	l := logging.NewLogger("StartAllModules")
 	for name, module := range Checkers {
-		logging.Info("config.StartAllModules").
+		l.Info().
 			Str("module", name).
 			Msg("Starting module")
 		err := module.Start()
 		if err != nil {
-			logging.Error("config.StartAllModules").Err(err).
+			l.Error().Err(err).
 				Str("module", name).
 				Msg("Unable to start module")
 		}
@@ -155,18 +159,18 @@ func StartAllModules() {
 }
 
 func initCrons(config *config.Gotomation) {
+	l := logging.NewLogger("initCrons")
 	if crontab != nil {
 		crontab.Stop()
 	}
 
 	crontab := cron.New()
 
-	logging.Info("initCrons").Msg("Initializing all crons")
+	l.Info().Msg("Initializing all crons")
 	for _, cronConfig := range config.Crons {
 		ce := new(core.CronEntry)
 		if err := ce.Configure(cronConfig, nil); err != nil {
-			logging.Error("config.initCrons").Err(err).
-				Msg("Unable to decode configuration for cron")
+			l.Error().Err(err).Msg("Unable to decode configuration for cron")
 			continue
 		}
 

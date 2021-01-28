@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	_ Checkable = (*Checker)(nil)
+	logger           = logging.NewLogger("checker")
+	_      Checkable = (*Checker)(nil)
 )
 
 // Checker checks a Modular at a regular interval
@@ -52,6 +53,8 @@ func (c *Checker) Stop() {
 
 // Configure reads the configuration and returns a new Checkable object
 func (c *Checker) Configure(data interface{}, module interface{}) error {
+	l := logging.NewLogger("checker.Configure")
+
 	var ok bool
 	c.Module, ok = module.(Modular)
 	if !ok {
@@ -68,7 +71,7 @@ func (c *Checker) Configure(data interface{}, module interface{}) error {
 		return err
 	}
 
-	logging.Trace("Checker.Configure").
+	l.Trace().
 		Str("module", fmt.Sprintf("%+v", module))
 
 	return nil

@@ -74,6 +74,7 @@ func (c *WebSocketClient) DeregisterCallback(hassType string) {
 }
 
 func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
+	l := logging.NewLogger("WebSocketClient.mustConnect")
 	var err error
 
 	// forcing connection to close
@@ -84,7 +85,7 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 	atomic.StoreUint64(&c.id, 0)
 
 	for {
-		logging.Info("mustConnect").
+		l.Info().
 			Str("url", c.URL.String()).
 			Msg("Trying to connect")
 		c.conn, _, _, err = ws.DefaultDialer.Dial(context.Background(), c.URL.String())
@@ -96,7 +97,7 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 			return
 		}
 
-		logging.Error("mustConnect").
+		l.Error().
 			Err(err).
 			Msg("An error occurred during connection")
 
@@ -139,8 +140,9 @@ func (c *WebSocketClient) Start() error {
 }
 
 func (c *WebSocketClient) handleDisconnection() {
+	l := logging.NewLogger("WebSocketClient.handleDisconnection")
 	if r := recover(); r != nil {
-		logging.Debug("handleDisconnection").
+		l.Debug().
 			Interface("recover", r).
 			Msg("Panic recovered")
 		c.mustConnect(2 * time.Second)
@@ -168,6 +170,7 @@ func (c *WebSocketClient) SubscribeEvents(eventTypes ...string) {
 // CallService is a generic function to call any service
 // Deprecated: Might not work, to be debugged
 func (c *WebSocketClient) CallService(entity model.HassEntity, service string) {
+	l := logging.NewLogger("WebSocketClient.CallService")
 	d := model.HassService{
 		ID:      c.NextMessageID(),
 		Type:    "call_service",
@@ -178,7 +181,7 @@ func (c *WebSocketClient) CallService(entity model.HassEntity, service string) {
 		},
 	}
 
-	logging.Trace("CallService").
+	l.Trace().
 		EmbedObject(d).
 		Msg("Calling service")
 	c.EnqueueRequest(NewWebSocketRequest(d))
@@ -200,10 +203,11 @@ func (c *WebSocketClient) requeueRequest(req *WebSocketRequest, after time.Durat
 
 // workerRequestsHandler handles request from channel and effectively sends them to the server
 func (c *WebSocketClient) workerRequestsHandler() {
+	l := logging.NewLogger("WebSocketClient.workerRequestsHandler")
 	// Wait for message on the channel
 	for request := range c.requestChannel {
 		if !SimpleClientSingleton.CheckServerAPIHealth() {
-			logging.Warn("WebSocketClient.workerRequestsHandler").
+			l.Warn().
 				Uint64("id", request.Data.GetID()).
 				Str("type", request.Data.GetType()).
 				Msg("Server is unavailable, requeuing")
@@ -213,7 +217,7 @@ func (c *WebSocketClient) workerRequestsHandler() {
 
 		if !c.authenticated && !strings.HasPrefix(request.Data.GetType(), "auth") {
 			// not authenticated yet, requeue
-			logging.Info("WebSocketClient.workerRequestsHandler").
+			l.Info().
 				Uint64("id", request.Data.GetID()).
 				Str("type", request.Data.GetType()).
 				Msg("Not authenticated yet, requeuing request")
@@ -221,19 +225,19 @@ func (c *WebSocketClient) workerRequestsHandler() {
 			continue
 		}
 
-		logging.Info("WebSocketClient.workerRequestsHandler").
+		l.Info().
 			Uint64("id", request.Data.GetID()).
 			Str("type", request.Data.GetType()).
 			Msg("Processing request")
 
 		data, _ := json.Marshal(request.Data)
-		logging.Trace("WebSocketClient.workerRequestsHandler").
+		l.Trace().
 			Uint64("id", request.Data.GetID()).
 			Str("type", request.Data.GetType()).
 			Msg("Sending request to the websocket server")
 		err := wsutil.WriteServerMessage(c.conn, ws.OpText, data)
 		if err != nil {
-			logging.Error("WebSocketClient.workerRequestsHandler").Err(err).Msg("Error sending request to the server, requeuing")
+			l.Error().Err(err).Msg("Error sending request to the server, requeuing")
 			c.EnqueueRequest(request)
 		}
 
@@ -244,6 +248,8 @@ func (c *WebSocketClient) workerRequestsHandler() {
 }
 
 func (c *WebSocketClient) workerDaemon() {
+	l := logging.NewLogger("WebSocketClient.workerDaemon")
+
 	defer c.handleDisconnection() // calling that when panicking
 	for {
 		var msg struct {
@@ -252,7 +258,7 @@ func (c *WebSocketClient) workerDaemon() {
 
 		recv, _, err := wsutil.ReadServerData(c.conn) // this is a blocking func
 		if err != nil {
-			logging.Error("WebSocketClient.workerDaemon").Err(err).Msg("Error reading from server")
+			l.Error().Err(err).Msg("Error reading from server")
 			c.conn.Close()
 			c.conn = nil
 			c.mustConnect(2 * time.Second)
@@ -261,13 +267,13 @@ func (c *WebSocketClient) workerDaemon() {
 			continue
 		}
 
-		logging.Trace("WebSocketClient.workerDaemon").
+		l.Trace().
 			Bytes("data", recv).
 			Msg("Message received from the server")
 
 		err = json.Unmarshal(recv, &msg)
 		if err != nil {
-			logging.Error("WebSocketClient.workerDaemon").Err(err).Msg("Error receiving message from server")
+			l.Error().Err(err).Msg("Error receiving message from server")
 			continue
 		}
 
@@ -278,14 +284,14 @@ func (c *WebSocketClient) workerDaemon() {
 			obj := reflect.New(reflect.TypeOf(cb.ConcreteType)).Interface().(model.HassAPIObject)
 			if cb.F != nil {
 				if err := json.Unmarshal(recv, &obj); err != nil {
-					logging.Error("WebSocketClient.workerDaemon").Err(err).Msg("Unable to unmarshal data")
+					l.Error().Err(err).Msg("Unable to unmarshal data")
 				} else {
 					go cb.F(obj)
 				}
 			}
 		} else {
 			// No handler configured
-			logging.Warn("WebSocketClient.workerDaemon").
+			l.Warn().
 				Str("message", string(recv)).
 				Msg("No handler defined")
 		}
@@ -299,13 +305,15 @@ func (c *WebSocketClient) Authenticated() bool {
 
 // handleResult handles result to a previously sent request and update request object accordingly
 func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
+	l := logging.NewLogger("WebSocketClient.handleResult")
+
 	result := data.(*model.HassResult)
 	if result.Success {
-		logging.Debug("WebSocketClient.handleResult").
+		l.Debug().
 			Uint64("id", result.GetID()).
 			Msg("Success result received for request")
 	} else {
-		logging.Warn("WebSocketClient.handleResult").
+		l.Warn().
 			Uint64("id", result.GetID()).
 			Str("error_code", result.Error.Code).
 			Str("error_message", result.Error.Message).
@@ -326,22 +334,25 @@ func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 }
 
 func (c *WebSocketClient) handleAuthRequired(data model.HassAPIObject) {
-	logging.Info("WebSocketClient.handleAuthRequired").
+	l := logging.NewLogger("WebSocketClient.handleAuthRequired")
+	l.Info().
 		Str("type", data.GetType()).
 		Msgf("Message received from server")
 	c.EnqueueRequest(NewWebSocketRequest(model.NewHassAuthentication(c.HassConfig.Token)))
 }
 
 func (c *WebSocketClient) handleAuthOK(data model.HassAPIObject) {
-	logging.Info("WebSocketClient.handleAuthOK").
+	l := logging.NewLogger("WebSocketClient.handleAuthOK")
+	l.Info().
 		Str("type", data.GetType()).
 		Msgf("Message received from server")
 	c.authenticated = true
 }
 
 func (c *WebSocketClient) handleAuthInvalid(data model.HassAPIObject) {
+	l := logging.NewLogger("WebSocketClient.handleAuthInvalid")
 	result := data.(*model.HassResult)
-	logging.Info("WebSocketClient.handleAuthInvalid").
+	l.Info().
 		Str("reason", result.Message).
 		Str("type", result.GetType()).
 		Msgf("Message received from server")

@@ -33,25 +33,26 @@ type DehumidifierTrigger struct {
 
 // Trigger godoc
 func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
+	l := logging.NewLogger("DehumidifierTrigger.Trigger")
 	if event == nil {
 		return
 	}
 
 	switch event.Event.Data.EntityID {
 	case t.ManualOverride.GetEntityIDFullName():
-		logging.Debug("DehumidifierTrigger.Trigger").
+		l.Debug().
 			Str("state", event.Event.Data.NewState.State).
 			Msg("Manual override changed")
 
 	default:
 		currentHum, err := strconv.ParseFloat(event.Event.Data.NewState.State, 64)
 		if err != nil {
-			logging.Error("DehumidifierTrigger.Trigger").Err(err).Msg("Error parsing humidity")
+			l.Error().Err(err).Msg("Error parsing humidity")
 			return // Should not happen
 		}
 
 		if !t.inTimeRange() {
-			logging.Debug("DehumidifierTrigger.Trigger").
+			l.Debug().
 				Float64("current", currentHum).
 				Float64("threshold_min", t.ThresholdMin).
 				Float64("threshold_max", t.ThresholdMax).
@@ -61,13 +62,13 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 			return
 		}
 
-		logging.Trace("DehumidifierTrigger.Trigger").
+		l.Trace().
 			EmbedObject(event).
 			Msg("Event received")
 
 		switchState, err := httpclient.SimpleClientSingleton.GetEntity(t.SwitchEntity.Domain, t.SwitchEntity.EntityID)
 		if err != nil {
-			logging.Error("DehumidifierTrigger.Trigger").Err(err).
+			l.Error().Err(err).
 				Str("device", t.SwitchEntity.GetEntityIDFullName()).
 				Msg("Error, unable to get state for device")
 		}
@@ -75,14 +76,14 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 		if currentHum >= t.ThresholdMax {
 			// in range or superior to ThresholdMax - ensure on
 			if switchState.State.State == "off" {
-				logging.Debug("DehumidifierTrigger.Trigger").
+				l.Debug().
 					Float64("current", currentHum).
 					Float64("threshold_min", t.ThresholdMin).
 					Float64("threshold_max", t.ThresholdMax).
 					Msg("current >= threshold_max, switching on")
 				httpclient.SimpleClientSingleton.CallService(t.SwitchEntity, "turn_on")
 			} else {
-				logging.Debug("DehumidifierTrigger.Trigger").
+				l.Debug().
 					Float64("current", currentHum).
 					Float64("threshold_min", t.ThresholdMin).
 					Float64("threshold_max", t.ThresholdMax).
@@ -91,21 +92,21 @@ func (t *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 		} else if currentHum <= t.ThresholdMin {
 			// in range or superior to ThresholdMax - ensure on
 			if switchState.State.State == "on" {
-				logging.Debug("DehumidifierTrigger.Trigger").
+				l.Debug().
 					Float64("current", currentHum).
 					Float64("threshold_min", t.ThresholdMin).
 					Float64("threshold_max", t.ThresholdMax).
 					Msg("current <= threshold_min, switching off")
 				httpclient.SimpleClientSingleton.CallService(t.SwitchEntity, "turn_off")
 			} else {
-				logging.Debug("DehumidifierTrigger.Trigger").
+				l.Debug().
 					Float64("current", currentHum).
 					Float64("threshold_min", t.ThresholdMin).
 					Float64("threshold_max", t.ThresholdMax).
 					Msg("current <= threshold_min but already off, doing nothing")
 			}
 		} else {
-			logging.Debug("DehumidifierTrigger.Trigger").
+			l.Debug().
 				Float64("current", currentHum).
 				Float64("threshold_min", t.ThresholdMin).
 				Float64("threshold_max", t.ThresholdMax).

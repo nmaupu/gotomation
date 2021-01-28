@@ -19,7 +19,8 @@ type Module struct {
 
 // Check godoc
 func (m Module) Check() {
-	logging.Error("Module.Check").Err(errors.New("Not implemented")).Msg("")
+	l := logging.NewLogger("Module.Check")
+	l.Error().Err(errors.New("Not implemented")).Send()
 }
 
 // GetInterval godoc
