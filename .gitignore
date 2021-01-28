@@ -17,4 +17,4 @@
 *.swp
 *.swo
 bin/
-config.yaml
+gotomation.yaml

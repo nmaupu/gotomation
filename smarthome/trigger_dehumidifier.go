@@ -4,18 +4,19 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
 var (
-	_ Actionable = (*DehumidifierTrigger)(nil)
+	_ core.Actionable = (*DehumidifierTrigger)(nil)
 )
 
 // DehumidifierTrigger checks for humidity and activate/deactivate a dehumidifier
 type DehumidifierTrigger struct {
-	Action `mapstructure:",squash"`
+	core.Action `mapstructure:",squash"`
 	// SwitchEntity is the entity used to switch on / off the dehumidifier
 	SwitchEntity model.HassEntity `mapstructure:"switch_entity"`
 	// TimeBeg is the time where monitoring begins

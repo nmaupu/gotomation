@@ -3,6 +3,7 @@ package smarthome
 import (
 	"sync"
 
+	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
@@ -11,9 +12,9 @@ import (
 
 var (
 	// Checkers stores all checkers
-	Checkers map[string]Checkable
+	Checkers map[string]core.Checkable
 	// Triggers stores all triggers
-	Triggers map[string]Triggerable
+	Triggers map[string]core.Triggerable
 	// mutex is used to lock map access by one goroutine only
 	mutex sync.Mutex
 	// cron
@@ -31,15 +32,15 @@ func Init(config config.Gotomation) {
 }
 
 func initTriggers(config *config.Gotomation) {
-	Triggers = make(map[string]Triggerable, 0)
+	Triggers = make(map[string]core.Triggerable, 0)
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
 			logging.Info("initTriggers").
 				Str("trigger", triggerName).
 				Msg("Initializing triggers")
-			trigger := new(Trigger)
-			var action Actionable
+			trigger := new(core.Trigger)
+			var action core.Actionable
 
 			switch triggerName {
 			case "dehumidifier":
@@ -94,15 +95,15 @@ func initCheckers(config *config.Gotomation) {
 	}
 
 	// (Re)init modules map
-	Checkers = make(map[string]Checkable, 0)
+	Checkers = make(map[string]core.Checkable, 0)
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
 			logging.Info("initCheckers").
 				Str("module", moduleName).
 				Msg("Initializing checkers")
-			checker := new(Checker)
-			var module Modular
+			checker := new(core.Checker)
+			var module core.Modular
 
 			switch moduleName {
 			case "internetChecker":
@@ -162,7 +163,7 @@ func initCrons(config *config.Gotomation) {
 
 	logging.Info("initCrons").Msg("Initializing all crons")
 	for _, cronConfig := range config.Crons {
-		ce := new(CronEntry)
+		ce := new(core.CronEntry)
 		if err := ce.Configure(cronConfig, nil); err != nil {
 			logging.Error("config.initCrons").Err(err).
 				Msg("Unable to decode configuration for cron")

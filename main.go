@@ -1,10 +1,10 @@
 package main
 
 import (
-	"flag"
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,25 +13,23 @@ import (
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/smarthome"
+	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
+type gotomationFlags struct {
+	configFile string
+	verbosity  string
+}
+
 func main() {
-	verbosity := flag.String("verbosity", "info", "Set log verbosity level")
-	flag.Parse()
-	err := logging.SetVerbosity(*verbosity)
-	if err != nil {
-		logging.Error("main").Err(err).Msg("Setting verbosity to default (info)")
-		logging.SetVerbosity("info")
-	}
+	gotoFlags := handleFlags()
 
 	// Get config from file
 	vi := viper.New()
-	vi.SetConfigName("config")
 	vi.SetConfigType("yaml")
-	vi.AddConfigPath(".")
-	vi.AddConfigPath("$HOME/.gotomation")
-	vi.AddConfigPath("/etc/gotomation")
+	vi.SetConfigName(filepath.Base(gotoFlags.configFile))
+	vi.AddConfigPath(filepath.Dir(gotoFlags.configFile))
 	vi.WatchConfig()
 	vi.OnConfigChange(func(e fsnotify.Event) {
 		log.Printf("Reloading configuration %s", e.Name)
@@ -64,6 +62,26 @@ func main() {
 			return
 		}
 	}
+}
+
+func handleFlags() gotomationFlags {
+	gotoFlags := gotomationFlags{}
+	flag.StringVarP(&gotoFlags.configFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
+	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Set log verbosity level")
+
+	flag.Parse()
+
+	if gotoFlags.configFile == "" {
+		logging.Fatal("Configuration file not provided")
+	}
+
+	err := logging.SetVerbosity(gotoFlags.verbosity)
+	if err != nil {
+		logging.Error("main").Err(err).Msg("Setting verbosity to default (info)")
+		logging.SetVerbosity("info")
+	}
+
+	return gotoFlags
 }
 
 func reloadConfig(vi *viper.Viper) {
