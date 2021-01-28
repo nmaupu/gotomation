@@ -1,10 +1,9 @@
 package smarthome
 
 import (
-	"log"
-
 	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/httpclient"
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -31,7 +30,8 @@ func (c *CronEntry) Configure(config interface{}, i interface{}) error {
 		return err
 	}
 
-	log.Printf("%+v\n", c)
+	logging.Trace("CronEntry.Configure").
+		Msgf("%+v", c)
 
 	return nil
 }

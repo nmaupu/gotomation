@@ -2,9 +2,9 @@ package smarthome
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/nmaupu/gotomation/logging"
 )
 
 var (
@@ -34,7 +34,7 @@ func (t *Trigger) Configure(config interface{}, action interface{}) error {
 		return err
 	}
 
-	log.Printf("%+v\n", action)
+	logging.Trace("Trigger.Configure").Msgf("%+v", action)
 
 	return nil
 }

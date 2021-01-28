@@ -1,9 +1,9 @@
 package smarthome
 
 import (
-	"log"
 	"sync"
 
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/robfig/cron"
@@ -35,6 +35,9 @@ func initTriggers(config *config.Gotomation) {
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
+			logging.Info("initTriggers").
+				Str("trigger", triggerName).
+				Msg("Initializing triggers")
 			trigger := new(Trigger)
 			var action Actionable
 
@@ -42,12 +45,16 @@ func initTriggers(config *config.Gotomation) {
 			case "dehumidifier":
 				action = new(DehumidifierTrigger)
 			default:
-				log.Printf("Trigger %s not found", triggerName)
+				logging.Warn("config.initTriggers").
+					Str("trigger", triggerName).
+					Msg("Trigger not found")
 				continue
 			}
 
 			if err := trigger.Configure(triggerConfig, action); err != nil {
-				log.Printf("Unable to decode configuration for trigger %s, err=%v", triggerName, err)
+				logging.Error("config.initTriggers").Err(err).
+					Str("trigger", triggerName).
+					Msg("Unable to decode configuration for trigger")
 				continue
 			}
 
@@ -91,6 +98,9 @@ func initCheckers(config *config.Gotomation) {
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
+			logging.Info("initCheckers").
+				Str("module", moduleName).
+				Msg("Initializing checkers")
 			checker := new(Checker)
 			var module Modular
 
@@ -98,12 +108,16 @@ func initCheckers(config *config.Gotomation) {
 			case "internetChecker":
 				module = new(InternetChecker)
 			default:
-				log.Printf("Module %s not found", moduleName)
+				logging.Warn("config.initCheckers").
+					Str("module", moduleName).
+					Msg("Module not found")
 				continue
 			}
 
 			if err := checker.Configure(moduleConfig, module); err != nil {
-				log.Printf("Unable to decode configuration for module %s, err=%v", moduleName, err)
+				logging.Error("config.initCheckers").Err(err).
+					Str("module", moduleName).
+					Msg("Unable to decode configuration for module")
 				continue
 			}
 
@@ -117,7 +131,9 @@ func initCheckers(config *config.Gotomation) {
 // StopAllModules stops all modules
 func StopAllModules() {
 	for name, module := range Checkers {
-		log.Printf("Stopping module %s", name)
+		logging.Info("config.StopAllModules").
+			Str("module", name).
+			Msg("Stopping module")
 		module.Stop()
 	}
 }
@@ -125,10 +141,14 @@ func StopAllModules() {
 // StartAllModules stops all modules
 func StartAllModules() {
 	for name, module := range Checkers {
-		log.Printf("Starting module %s", name)
+		logging.Info("config.StartAllModules").
+			Str("module", name).
+			Msg("Starting module")
 		err := module.Start()
 		if err != nil {
-			log.Printf("Unable to start %s, err=%v", name, err)
+			logging.Error("config.StartAllModules").Err(err).
+				Str("module", name).
+				Msg("Unable to start module")
 		}
 	}
 }
@@ -140,10 +160,12 @@ func initCrons(config *config.Gotomation) {
 
 	crontab := cron.New()
 
+	logging.Info("initCrons").Msg("Initializing all crons")
 	for _, cronConfig := range config.Crons {
 		ce := new(CronEntry)
 		if err := ce.Configure(cronConfig, nil); err != nil {
-			log.Printf("Unable to decode configuration for cron, err=%v", err)
+			logging.Error("config.initCrons").Err(err).
+				Msg("Unable to decode configuration for cron")
 			continue
 		}
 

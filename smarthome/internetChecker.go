@@ -1,11 +1,13 @@
 package smarthome
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/go-ping/ping"
 	"github.com/nmaupu/gotomation/httpclient"
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -35,7 +37,9 @@ func (c *InternetChecker) Check() {
 	if c.MaxRebootEvery == 0 {
 		c.MaxRebootEvery = defaultRebootEveryMin
 	}
-	log.Printf("[InternetChecker] Checking for internet health (ping %s)", c.PingHost)
+	logging.Debug("InternetChecker.Check").
+		Str("host", c.PingHost).
+		Msg("Checking for internet health")
 	pinger, _ := ping.NewPinger(c.PingHost)
 
 	pinger.Count = 1
@@ -44,24 +48,29 @@ func (c *InternetChecker) Check() {
 
 	err := pinger.Run()
 	if err != nil {
-		log.Println("An error occurred creating pinger object")
+		logging.Error("InternetChecker.Check").Err(err).Msg("An error occurred creating pinger object")
 		return
 	}
 
 	stats := pinger.Statistics()
 	isTimeBetweenRebootOK := time.Now().Sub(c.lastReboot) > c.MaxRebootEvery
 	if stats.PacketLoss == 0 {
-		log.Println("[InternetChecker] Freebox OK!")
+		logging.Debug("InternetChecker.Check").Msg("Connection OK")
 	} else if stats.PacketLoss > 0 && stats.PacketLoss != 100 {
-		log.Printf("[InternetChecker] Some packet are lost, statistics=%+v", stats)
+		logging.Warn("InternetChecker.Check").
+			Str("statistics", fmt.Sprintf("%+v", stats)).
+			Msg("Some packet are lost")
 	} else if stats.PacketLoss == 100 && isTimeBetweenRebootOK {
-		log.Println("[InternetChecker] 100% packet lost, rebooting fbx...")
+		logging.Error("InternetChecker.Check").Err(errors.New("Connection failed")).
+			Msg("100% packet lost, rebooting router")
 		// Rebooting
 		httpclient.SimpleClientSingleton.CallService(c.RestartEntity, "turn_off")
 		time.Sleep(1 * time.Second)
 		httpclient.SimpleClientSingleton.CallService(c.RestartEntity, "turn_on")
 		c.lastReboot = time.Now()
 	} else if !isTimeBetweenRebootOK {
-		log.Printf("[InternetChecker] Fail but too soon to reboot... %+v", stats)
+		logging.Warn("InternetChecker.Check").
+			Str("statistics", fmt.Sprintf("%+v", stats)).
+			Msg("Fail but too soon to reboot")
 	}
 }

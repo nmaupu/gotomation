@@ -1,8 +1,10 @@
 package smarthome
 
 import (
-	"fmt"
+	"errors"
 	"time"
+
+	"github.com/nmaupu/gotomation/logging"
 )
 
 var (
@@ -17,7 +19,7 @@ type Module struct {
 
 // Check godoc
 func (m Module) Check() {
-	fmt.Println("Not implemented")
+	logging.Error("Module.Check").Err(errors.New("Not implemented")).Msg("")
 }
 
 // GetInterval godoc

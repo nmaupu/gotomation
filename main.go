@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/nmaupu/gotomation/httpclient"
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/smarthome"
@@ -15,6 +17,14 @@ import (
 )
 
 func main() {
+	verbosity := flag.String("verbosity", "info", "Set log verbosity level")
+	flag.Parse()
+	err := logging.SetVerbosity(*verbosity)
+	if err != nil {
+		logging.Error("main").Err(err).Msg("Setting verbosity to default (info)")
+		logging.SetVerbosity("info")
+	}
+
 	// Get config from file
 	vi := viper.New()
 	vi.SetConfigName("config")
@@ -45,7 +55,7 @@ func main() {
 	for range ticker.C {
 		select {
 		case <-interrupt:
-			log.Println("Stopping service")
+			logging.Info("main").Msg("Stopping service")
 			select {
 			case <-time.After(time.Second):
 				httpclient.WebSocketClientSingleton.Stop()
@@ -61,14 +71,14 @@ func reloadConfig(vi *viper.Viper) {
 
 	if err := vi.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			log.Fatalf("No config file available")
+			logging.Fatal("main.reloadConfig").Msg("No config file available")
 		}
 
-		log.Fatalf("Cannot read config file, err=%v", err)
+		logging.Fatal("main.reloadConfig").Err(err).Msg("Cannot read config file")
 	}
 
 	if err := vi.Unmarshal(&config); err != nil {
-		log.Fatalf("Unable to unmarshal config file, err=%v", err)
+		logging.Fatal("main.reloadConfig").Err(err).Msg("Unable to unmarshal config file")
 	}
 
 	// Init services and singletons
