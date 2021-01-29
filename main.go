@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -24,7 +23,7 @@ type gotomationFlags struct {
 }
 
 func main() {
-	l := logging.NewLogger("main")
+	//l := logging.NewLogger("main")
 	gotoFlags := handleFlags()
 
 	// Get config from file
@@ -34,18 +33,13 @@ func main() {
 	vi.AddConfigPath(filepath.Dir(gotoFlags.configFile))
 	vi.WatchConfig()
 	vi.OnConfigChange(func(e fsnotify.Event) {
-		log.Printf("Reloading configuration %s", e.Name)
+		l := logging.NewLogger("OnConfigChange")
+		l.Info().Str("config", e.Name).Msg("Reloading configuration")
 		reloadConfig(vi)
 	})
 
 	// Load config when starting
 	reloadConfig(vi)
-
-	// Adding callbacks for server communication, start and subscribe to events
-	httpclient.WebSocketClientSingleton.RegisterCallback("event", smarthome.EventCallback, model.HassEvent{})
-	httpclient.WebSocketClientSingleton.Start()
-	httpclient.WebSocketClientSingleton.SubscribeEvents("state_changed")
-	httpclient.WebSocketClientSingleton.SubscribeEvents("roku_command")
 
 	// Main loop, ctrl+c to stop
 	interrupt := make(chan os.Signal, 1)
@@ -55,13 +49,7 @@ func main() {
 	for range ticker.C {
 		select {
 		case <-interrupt:
-			l.Info().Msg("Stopping service")
-			smarthome.StopAllCheckers()
-			smarthome.StopCron()
-			httpclient.WebSocketClientSingleton.Stop()
-
-			l.Debug().Msg("Waiting for all go routines to terminate")
-			app.RoutinesWG.Wait()
+			stop()
 			return
 		}
 	}
@@ -71,7 +59,7 @@ func handleFlags() gotomationFlags {
 	l := logging.NewLogger("handleFlags")
 	gotoFlags := gotomationFlags{}
 	flag.StringVarP(&gotoFlags.configFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
-	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Set log verbosity level")
+	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Specify log's verbosity")
 
 	flag.Parse()
 
@@ -79,32 +67,68 @@ func handleFlags() gotomationFlags {
 		l.Fatal().Msg("Configuration file not provided")
 	}
 
-	err := logging.SetVerbosity(gotoFlags.verbosity)
+	setLogLevel(gotoFlags.verbosity)
+
+	return gotoFlags
+}
+
+func setLogLevel(lvl string) {
+	if lvl == "" {
+		return
+	}
+
+	l := logging.NewLogger("setLogLevel")
+
+	err := logging.SetVerbosity(lvl)
 	if err != nil {
 		l.Error().Err(err).Msg("Setting verbosity to default (info)")
 		logging.SetVerbosity("info")
 	}
+}
 
-	return gotoFlags
+func stop() {
+	l := logging.NewLogger("stop")
+
+	l.Info().Msg("Stopping service")
+	smarthome.StopAllCheckers()
+	smarthome.StopCron()
+	if httpclient.WebSocketClientSingleton != nil {
+		httpclient.WebSocketClientSingleton.Stop()
+	}
+
+	app.RoutinesWG.Wait()
+	l.Debug().Msg("All go routines terminated")
 }
 
 func reloadConfig(vi *viper.Viper) {
 	l := logging.NewLogger("reloadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
 	config := config.Gotomation{}
+	isErr := false
 
 	if err := vi.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			l.Fatal().Msg("Unable to read config file")
+		isErr = true
+		l.Error().Err(err).Msg("Unable to read config file")
+	}
+
+	if !isErr {
+		if err := vi.Unmarshal(&config); err != nil {
+			isErr = true
+			l.Error().Err(err).Msg("Unable to unmarshal config file")
 		}
-
-		l.Fatal().Err(err).Msg("Cannot read config file")
 	}
 
-	if err := vi.Unmarshal(&config); err != nil {
-		l.Fatal().Err(err).Msg("Unable to unmarshal config file")
-	}
+	if !isErr {
+		setLogLevel(config.LogLevel)
 
-	// Init services and singletons
-	httpclient.Init(config)
-	smarthome.Init(config)
+		stop()
+		httpclient.Init(config)
+		smarthome.Init(config)
+
+		// Adding callbacks for server communication, start and subscribe to events
+		httpclient.WebSocketClientSingleton.RegisterCallback("event", smarthome.EventCallback, model.HassEvent{})
+		httpclient.WebSocketClientSingleton.Start()
+		for _, sub := range config.HomeAssistant.SubscribeEvents {
+			httpclient.WebSocketClientSingleton.SubscribeEvents(sub)
+		}
+	}
 }

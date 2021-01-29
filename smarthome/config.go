@@ -39,9 +39,6 @@ func initTriggers(config *config.Gotomation) {
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
-			l.Info().
-				Str("trigger", triggerName).
-				Msg("Initializing triggers")
 			trigger := new(core.Trigger)
 			var action core.Actionable
 
@@ -64,60 +61,24 @@ func initTriggers(config *config.Gotomation) {
 				continue
 			}
 
+			l.Info().
+				Str("trigger", triggerName).
+				Bool("enabled", trigger.Action.IsEnabled()).
+				Msg("Initializing trigger")
+
 			Triggers[triggerName] = trigger
-		}
-	}
-}
-
-// EventCallback is called when a listen event occurs
-func EventCallback(msg model.HassAPIObject) {
-	l := logging.NewLogger("EventCallback")
-	mutex.Lock()
-	defer mutex.Unlock()
-
-	if Triggers == nil || len(Triggers) == 0 {
-		return
-	}
-
-	event := msg.(*model.HassEvent)
-
-	l.Trace().
-		EmbedObject(event).
-		Msg("Event received by the callback func")
-
-	// Look for the entity
-	for _, t := range Triggers {
-		if !t.GetActionable().IsEnabled() {
-			continue
-		}
-
-		// Checking event types if defined
-		toTriggerEvents := core.StringInSlice(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
-
-		eventEntity := model.NewHassEntity(event.Event.Data.EntityID)
-		toTriggerEntities := eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger())
-
-		if toTriggerEvents || toTriggerEntities {
-			// Call object's trigger func
-			t.GetActionable().Trigger(event)
 		}
 	}
 }
 
 func initCheckers(config *config.Gotomation) {
 	l := logging.NewLogger("initCheckers")
-	if Checkers != nil && len(Checkers) > 0 {
-		StopAllCheckers()
-	}
 
 	// (Re)init checkers map
 	Checkers = make(map[string]core.Checkable, 0)
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
-			l.Info().
-				Str("module", moduleName).
-				Msg("Initializing checkers")
 			checker := new(core.Checker)
 			var module core.Modular
 
@@ -137,6 +98,11 @@ func initCheckers(config *config.Gotomation) {
 					Msg("Unable to decode configuration for module")
 				continue
 			}
+
+			l.Info().
+				Str("module", moduleName).
+				Bool("enabled", checker.Module.IsEnabled()).
+				Msg("Initializing checker")
 
 			Checkers[moduleName] = checker
 		}
@@ -198,5 +164,40 @@ func initCrons(config *config.Gotomation) {
 func StopCron() {
 	if crontab != nil {
 		crontab.Stop()
+	}
+}
+
+// EventCallback is called when a listen event occurs
+func EventCallback(msg model.HassAPIObject) {
+	l := logging.NewLogger("EventCallback")
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	if Triggers == nil || len(Triggers) == 0 {
+		return
+	}
+
+	event := msg.(*model.HassEvent)
+
+	l.Trace().
+		EmbedObject(event).
+		Msg("Event received by the callback func")
+
+	// Look for the entity
+	for _, t := range Triggers {
+		if !t.GetActionable().IsEnabled() {
+			continue
+		}
+
+		// Checking event types if defined
+		toTriggerEvents := core.StringInSlice(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
+
+		eventEntity := model.NewHassEntity(event.Event.Data.EntityID)
+		toTriggerEntities := eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger())
+
+		if toTriggerEvents || toTriggerEntities {
+			// Call object's trigger func
+			t.GetActionable().Trigger(event)
+		}
 	}
 }
