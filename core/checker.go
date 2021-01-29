@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/mapstructure"
+	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/logging"
 )
 
@@ -27,7 +28,9 @@ func (c *Checker) Start() error {
 
 	c.stop = make(chan bool, 1)
 
+	app.RoutinesWG.Add(1)
 	go func() {
+		defer app.RoutinesWG.Done()
 		ticker := time.NewTicker(c.Module.GetInterval())
 		defer ticker.Stop()
 

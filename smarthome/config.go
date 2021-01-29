@@ -7,6 +7,8 @@ import (
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
+	"github.com/nmaupu/gotomation/smarthome/checkers"
+	"github.com/nmaupu/gotomation/smarthome/triggers"
 	"github.com/robfig/cron"
 )
 
@@ -45,7 +47,7 @@ func initTriggers(config *config.Gotomation) {
 
 			switch triggerName {
 			case "dehumidifier":
-				action = new(DehumidifierTrigger)
+				action = new(triggers.Dehumidifier)
 			default:
 				l.Warn().
 					Str("trigger", triggerName).
@@ -93,10 +95,10 @@ func EventCallback(msg model.HassAPIObject) {
 func initCheckers(config *config.Gotomation) {
 	l := logging.NewLogger("initCheckers")
 	if Checkers != nil && len(Checkers) > 0 {
-		StopAllModules()
+		StopAllCheckers()
 	}
 
-	// (Re)init modules map
+	// (Re)init checkers map
 	Checkers = make(map[string]core.Checkable, 0)
 
 	for _, module := range config.Modules {
@@ -109,7 +111,7 @@ func initCheckers(config *config.Gotomation) {
 
 			switch moduleName {
 			case "internetChecker":
-				module = new(InternetChecker)
+				module = new(checkers.Internet)
 			default:
 				l.Warn().
 					Str("module", moduleName).
@@ -128,32 +130,32 @@ func initCheckers(config *config.Gotomation) {
 		}
 	}
 
-	StartAllModules()
+	StartAllCheckers()
 }
 
-// StopAllModules stops all modules
-func StopAllModules() {
-	l := logging.NewLogger("StopAllModules")
-	for name, module := range Checkers {
+// StopAllCheckers stops all checkers
+func StopAllCheckers() {
+	l := logging.NewLogger("StopAllCheckers")
+	for name, checker := range Checkers {
 		l.Info().
-			Str("module", name).
-			Msg("Stopping module")
-		module.Stop()
+			Str("checker_name", name).
+			Msg("Stopping checker")
+		checker.Stop()
 	}
 }
 
-// StartAllModules stops all modules
-func StartAllModules() {
-	l := logging.NewLogger("StartAllModules")
-	for name, module := range Checkers {
+// StartAllCheckers stops all checkers
+func StartAllCheckers() {
+	l := logging.NewLogger("StartAllCheckers")
+	for name, checker := range Checkers {
 		l.Info().
-			Str("module", name).
-			Msg("Starting module")
-		err := module.Start()
+			Str("checker_name", name).
+			Msg("Starting checker")
+		err := checker.Start()
 		if err != nil {
 			l.Error().Err(err).
-				Str("module", name).
-				Msg("Unable to start module")
+				Str("checker_name", name).
+				Msg("Unable to start checker")
 		}
 	}
 }
@@ -178,4 +180,11 @@ func initCrons(config *config.Gotomation) {
 	}
 
 	crontab.Start()
+}
+
+// StopCron stops cron and free associated resources
+func StopCron() {
+	if crontab != nil {
+		crontab.Stop()
+	}
 }
