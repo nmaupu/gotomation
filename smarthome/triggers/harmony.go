@@ -51,13 +51,17 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 
 	cmds := h.getCommands(event.Event.Data.Key)
 	for _, cmd := range cmds {
-		l.Debug().
+		cmdLogger := l.With().
 			Str("cmd_entity", cmd.Entity.GetEntityIDFullName()).
 			Str("cmd_service", cmd.Service).
 			Str("cmd_delay", cmd.Delay.String()).
-			Msg("Calling service")
+			Logger()
+		cmdLogger.Debug().Msg("Calling service")
 		if cmd.Entity.EntityID != "" && cmd.Entity.Domain != "" && cmd.Service != "" {
-			httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service)
+			err := httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service)
+			if err != nil {
+				cmdLogger.Error().Err(err).Msg("An error occurred calling service")
+			}
 		}
 		time.Sleep(cmd.Delay)
 	}

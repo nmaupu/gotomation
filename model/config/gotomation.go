@@ -3,10 +3,13 @@ package config
 // Gotomation is the struct to unmarshal configuration
 // It is using mapstructure for a compatibility with Viper config files
 type Gotomation struct {
+	// LogLevel is the log level configured
+	LogLevel string `mapstructure:"log_level"`
 	// HomeAssistant server related options
 	HomeAssistant struct {
-		Host  string `mapstructure:"host"`
-		Token string `mapstructure:"token"`
+		Host            string   `mapstructure:"host"`
+		Token           string   `mapstructure:"token"`
+		SubscribeEvents []string `mapstructure:"subscribe_events"`
 	} `mapstructure:"home_assistant"`
 
 	// Modules configuration

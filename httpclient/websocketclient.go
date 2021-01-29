@@ -312,8 +312,8 @@ func (c *WebSocketClient) workerDaemon() {
 			c.mutexConn.Lock()
 			connIsNil := c.conn == nil
 			c.mutexConn.Unlock()
-			if connIsNil { // Probably killed via stop function, otherwise conn is not nil
-				l.Debug().Msg("Stop func has been called")
+			if connIsNil { // Killed via stop function using a nasty workaround: closing conn and setting it to nil...
+				l.Trace().Msg("Stop func has been called")
 				continue
 			}
 

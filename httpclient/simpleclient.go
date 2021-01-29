@@ -135,7 +135,7 @@ func (c *SimpleClient) CallService(entity model.HassEntity, service string) erro
 	defer resp.Body.Close()
 
 	if 200 != resp.StatusCode {
-		return fmt.Errorf("HTTP response code is not 200, got=%d", resp.StatusCode)
+		return fmt.Errorf("HTTP response code is not 200, got=%s", resp.Status)
 	}
 
 	return nil
