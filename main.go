@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
@@ -55,11 +56,12 @@ func main() {
 		select {
 		case <-interrupt:
 			l.Info().Msg("Stopping service")
-			select {
-			case <-time.After(time.Second):
-				httpclient.WebSocketClientSingleton.Stop()
-				smarthome.StopAllModules()
-			}
+			smarthome.StopAllCheckers()
+			smarthome.StopCron()
+			httpclient.WebSocketClientSingleton.Stop()
+
+			l.Debug().Msg("Waiting for all go routines to terminate")
+			app.RoutinesWG.Wait()
 			return
 		}
 	}

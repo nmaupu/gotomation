@@ -1,4 +1,4 @@
-package smarthome
+package checkers
 
 import (
 	"errors"
@@ -13,15 +13,15 @@ import (
 )
 
 var (
-	_ (core.Modular) = (*InternetChecker)(nil)
+	_ (core.Modular) = (*Internet)(nil)
 )
 
 const (
 	defaultRebootEveryMin = 300 * time.Second
 )
 
-// InternetChecker module pings a host at a regular interval and restart the internet box if it fails
-type InternetChecker struct {
+// Internet module pings a host at a regular interval and restart the internet box if it fails
+type Internet struct {
 	core.Module `mapstructure:",squash"`
 	// PingHost is the host to ping
 	PingHost string `mapstructure:"ping_host"`
@@ -34,7 +34,7 @@ type InternetChecker struct {
 }
 
 // Check runs a single check
-func (c *InternetChecker) Check() {
+func (c *Internet) Check() {
 	l := logging.NewLogger("InternetChecker.Check")
 	if c.MaxRebootEvery == 0 {
 		c.MaxRebootEvery = defaultRebootEveryMin

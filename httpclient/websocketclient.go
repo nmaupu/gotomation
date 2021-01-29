@@ -6,11 +6,13 @@ import (
 	"net"
 	"reflect"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
+	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
@@ -34,13 +36,20 @@ type callback struct {
 // WebSocketClient manages a WebSocket connection to hass
 type WebSocketClient struct {
 	model.HassConfig
+	mutexConn        sync.Mutex
 	conn             net.Conn
 	callbacks        map[string]callback
 	EventsSubscribed map[uint64]model.HassEventSubscription
 	// id to use for the next request
 	id uint64
+
 	// requestChannel is used to share WebSocketRequest objects between go routines
 	requestChannel chan *WebSocketRequest
+	// workerRequestsHandlerStop is used to stop workerRequestsHandler routine
+	workerRequestsHandlerStop chan bool
+	// workerDaemonStop is used to stop workerDaemon routine
+	workerDaemonStop chan bool
+
 	// requestsTracker keeps track of requests sent to the server waiting for a result
 	requestsTracker WebSocketRequestsTracker
 	authenticated   bool
@@ -50,7 +59,10 @@ type WebSocketClient struct {
 func NewWebSocketClient(config model.HassConfig) *WebSocketClient {
 	return &WebSocketClient{
 		HassConfig:     config,
-		requestChannel: make(chan *WebSocketRequest, 100),
+		requestChannel: make(chan *WebSocketRequest, 10),
+		// important: setting size of chan bools to 1 to avoid being blocked until read when sending the stop message
+		workerRequestsHandlerStop: make(chan bool, 1),
+		workerDaemonStop:          make(chan bool, 1),
 	}
 }
 
@@ -78,9 +90,7 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 	var err error
 
 	// forcing connection to close
-	if c.conn != nil {
-		c.conn.Close()
-	}
+	c.closeConn()
 	c.authenticated = false
 	atomic.StoreUint64(&c.id, 0)
 
@@ -88,8 +98,13 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 		l.Info().
 			Str("url", c.URL.String()).
 			Msg("Trying to connect")
+		c.mutexConn.Lock()
 		c.conn, _, _, err = ws.DefaultDialer.Dial(context.Background(), c.URL.String())
+		defer c.mutexConn.Unlock()
 		if err == nil {
+			l.Info().
+				Str("url", c.URL.String()).
+				Msg("Connection established")
 			// resubscribing to registered events
 			for _, e := range c.EventsSubscribed {
 				c.EnqueueRequest(NewWebSocketRequest(e))
@@ -113,9 +128,14 @@ func (c *WebSocketClient) NextMessageID() uint64 {
 
 // Stop stops the web socket connection and free resources
 func (c *WebSocketClient) Stop() {
-	if c.conn != nil {
-		c.conn.Close()
-	}
+	c.workerRequestsHandlerStop <- true
+
+	// Cleaning conn and force workerDaemon to get out of the blocking reading func
+	// Important to do that BEFORE sending the stop message
+	// because when failing, a reconnection occurs, so connection HAS TO be nil before it happens
+	// See workerDaemon func's error handling
+	c.closeConn()
+	c.workerDaemonStop <- true
 }
 
 // Start connects, authenticates and listens to Home Assistant WebSocket API
@@ -131,16 +151,24 @@ func (c *WebSocketClient) Start() error {
 	}()
 
 	// 1 worker to send data to the server is enough
-	go c.workerRequestsHandler()
+	defer app.RoutinesWG.Add(1)
+	go func() {
+		defer app.RoutinesWG.Done()
+		c.workerRequestsHandler()
+	}()
 
 	// main thread handling communication with the server
-	go c.workerDaemon()
+	defer app.RoutinesWG.Add(1)
+	go func() {
+		defer app.RoutinesWG.Done()
+		c.workerDaemon()
+	}()
 
 	return nil
 }
 
-func (c *WebSocketClient) handleDisconnection() {
-	l := logging.NewLogger("WebSocketClient.handleDisconnection")
+func (c *WebSocketClient) recoverDisconnection() {
+	l := logging.NewLogger("WebSocketClient.recoverDisconnection")
 	if r := recover(); r != nil {
 		l.Debug().
 			Interface("recover", r).
@@ -194,7 +222,9 @@ func (c *WebSocketClient) EnqueueRequest(request *WebSocketRequest) {
 
 // requeueRequest requeues a request after a while
 func (c *WebSocketClient) requeueRequest(req *WebSocketRequest, after time.Duration) {
+	app.RoutinesWG.Add(1)
 	go func() {
+		defer app.RoutinesWG.Done()
 		time.Sleep(after)
 		//req.Data = req.Data.Duplicate(c.NextMessageID())
 		c.EnqueueRequest(req)
@@ -203,66 +233,92 @@ func (c *WebSocketClient) requeueRequest(req *WebSocketRequest, after time.Durat
 
 // workerRequestsHandler handles request from channel and effectively sends them to the server
 func (c *WebSocketClient) workerRequestsHandler() {
-	l := logging.NewLogger("WebSocketClient.workerRequestsHandler")
+	funcLogger := logging.NewLogger("WebSocketClient.workerRequestsHandler")
+
+	running := true
 	// Wait for message on the channel
-	for request := range c.requestChannel {
-		if !SimpleClientSingleton.CheckServerAPIHealth() {
-			l.Warn().
+	for running {
+
+		select {
+		case <-c.workerRequestsHandlerStop:
+			funcLogger.Info().Msg("Stopping workerRequestsHandler routine")
+			running = false
+		case request := <-c.requestChannel:
+			// Creating logger for this request
+			l := funcLogger.With().
 				Uint64("id", request.Data.GetID()).
 				Str("type", request.Data.GetType()).
-				Msg("Server is unavailable, requeuing")
-			c.requeueRequest(request, 2*time.Second)
-			continue
+				Logger()
+
+			if !SimpleClientSingleton.CheckServerAPIHealth() {
+				l.Warn().Msg("Server is unavailable, requeuing")
+				c.requeueRequest(request, 2*time.Second)
+				continue
+			}
+
+			if !c.authenticated && !strings.HasPrefix(request.Data.GetType(), "auth") {
+				// not authenticated yet, requeue
+				l.Debug().Msg("Not authenticated yet, requeuing request")
+				c.requeueRequest(request, 1*time.Second)
+				continue
+			}
+
+			l.Info().Msg("Processing request")
+
+			data, _ := json.Marshal(request.Data)
+
+			l.Trace().Msg("Sending request to the websocket server")
+			err := wsutil.WriteServerMessage(c.conn, ws.OpText, data)
+			if err != nil {
+				l.Error().Err(err).Msg("Error sending request to the server, requeuing")
+				c.EnqueueRequest(request)
+			}
+
+			// Track the request
+			request.LastUpdateTime = time.Now()
+			c.requestsTracker.InProgress(request.Data.GetID(), request)
 		}
 
-		if !c.authenticated && !strings.HasPrefix(request.Data.GetType(), "auth") {
-			// not authenticated yet, requeue
-			l.Info().
-				Uint64("id", request.Data.GetID()).
-				Str("type", request.Data.GetType()).
-				Msg("Not authenticated yet, requeuing request")
-			c.requeueRequest(request, 1*time.Second)
-			continue
-		}
-
-		l.Info().
-			Uint64("id", request.Data.GetID()).
-			Str("type", request.Data.GetType()).
-			Msg("Processing request")
-
-		data, _ := json.Marshal(request.Data)
-		l.Trace().
-			Uint64("id", request.Data.GetID()).
-			Str("type", request.Data.GetType()).
-			Msg("Sending request to the websocket server")
-		err := wsutil.WriteServerMessage(c.conn, ws.OpText, data)
-		if err != nil {
-			l.Error().Err(err).Msg("Error sending request to the server, requeuing")
-			c.EnqueueRequest(request)
-		}
-
-		// Track the request
-		request.LastUpdateTime = time.Now()
-		c.requestsTracker.InProgress(request.Data.GetID(), request)
 	}
+
+	funcLogger.Info().Msg("workerRequestsHandler stopped")
 }
 
 func (c *WebSocketClient) workerDaemon() {
 	l := logging.NewLogger("WebSocketClient.workerDaemon")
 
-	defer c.handleDisconnection() // calling that when panicking
-	for {
+	defer c.recoverDisconnection() // calling that when wsutil.ReadServerData panics
+	running := true
+	for running {
+		select {
+		case <-c.workerDaemonStop:
+			l.Info().Msg("Stopping workerDaemon routine")
+			running = false
+			continue
+		default: // Avoid vscode complaining about unreachable code below
+		}
+
 		var msg struct {
 			Type string `json:"type"`
 		}
 
-		recv, _, err := wsutil.ReadServerData(c.conn) // this is a blocking func
+		// ReadServerData is a blocking func
+		// As such, the only way to force it to return is to close the connection and force it to nil
+		// A mutex is used so that when stop is called from another go routine, only one go routine
+		// can change conn object at a time.
+		// Otherwise, when testing if conn == nil, it might or might not be the case yet...
+		recv, _, err := wsutil.ReadServerData(c.conn)
 		if err != nil {
+			c.mutexConn.Lock()
+			connIsNil := c.conn == nil
+			c.mutexConn.Unlock()
+			if connIsNil { // Probably killed via stop function, otherwise conn is not nil
+				l.Debug().Msg("Stop func has been called")
+				continue
+			}
+
 			l.Error().Err(err).Msg("Error reading from server")
-			c.conn.Close()
-			c.conn = nil
 			c.mustConnect(2 * time.Second)
-			defer c.conn.Close()
 			// abort current loop
 			continue
 		}
@@ -286,7 +342,11 @@ func (c *WebSocketClient) workerDaemon() {
 				if err := json.Unmarshal(recv, &obj); err != nil {
 					l.Error().Err(err).Msg("Unable to unmarshal data")
 				} else {
-					go cb.F(obj)
+					app.RoutinesWG.Add(1)
+					go func() {
+						defer app.RoutinesWG.Done()
+						cb.F(obj)
+					}()
 				}
 			}
 		} else {
@@ -296,11 +356,22 @@ func (c *WebSocketClient) workerDaemon() {
 				Msg("No handler defined")
 		}
 	}
+
+	l.Info().Msg("workerDaemon stopped")
 }
 
 // Authenticated returns true if already authenticated, false otherwise
 func (c *WebSocketClient) Authenticated() bool {
 	return c.authenticated
+}
+
+func (c *WebSocketClient) closeConn() {
+	c.mutexConn.Lock()
+	defer c.mutexConn.Unlock()
+	if c.conn != nil {
+		c.conn.Close()
+		c.conn = nil
+	}
 }
 
 // handleResult handles result to a previously sent request and update request object accordingly
