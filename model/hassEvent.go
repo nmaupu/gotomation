@@ -23,11 +23,15 @@ type HassEventContent struct {
 	Context   HassContext   `json:"context"`
 }
 
-// HassEventData godoc
+// HassEventData is the data of the event
+// All fields might not be filled, it depends on the event EventType
 type HassEventData struct {
-	EntityID string    `json:"entity_id"`
-	OldState HassState `json:"old_state"`
-	NewState HassState `json:"new_state"`
+	EntityID   string    `json:"entity_id"`
+	SourceName string    `json:"source_name"`
+	Type       string    `json:"type"`
+	Key        string    `json:"key"`
+	OldState   HassState `json:"old_state"`
+	NewState   HassState `json:"new_state"`
 }
 
 // GetID godoc
@@ -52,7 +56,8 @@ func (e HassEvent) MarshalZerologObject(event *zerolog.Event) {
 	event.
 		Uint64("id", e.ID).
 		Str("type", e.Type).
-		Str("entity_id", e.Event.Data.EntityID).
-		Str("old_state", e.Event.Data.OldState.State).
-		Str("new_state", e.Event.Data.NewState.State)
+		Str("event.event_type", e.Event.EventType).
+		Str("event.data.entity_id", e.Event.Data.EntityID).
+		Str("event.data.old_state", e.Event.Data.OldState.State).
+		Str("event.data.new_state", e.Event.Data.NewState.State)
 }

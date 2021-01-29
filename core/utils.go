@@ -52,3 +52,14 @@ func MapstructureDecodeHook(from, to reflect.Type, data interface{}) (interface{
 
 	return result, err
 }
+
+// StringInSlice checks whether a string is present in the given slice
+func StringInSlice(str string, s []string) bool {
+	for _, v := range s {
+		if v == str {
+			return true
+		}
+	}
+
+	return false
+}
