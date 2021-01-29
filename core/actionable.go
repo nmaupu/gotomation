@@ -6,5 +6,6 @@ import "github.com/nmaupu/gotomation/model"
 type Actionable interface {
 	IsEnabled() bool
 	GetEntitiesForTrigger() []model.HassEntity
+	GetEventTypesForTrigger() []string
 	Trigger(e *model.HassEvent)
 }

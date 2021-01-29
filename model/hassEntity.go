@@ -14,6 +14,10 @@ type HassEntity struct {
 
 // GetEntityIDFullName return the entity_id in the form domain.entity_id
 func (e HassEntity) GetEntityIDFullName() string {
+	if e.Domain == "" && e.EntityID == "" {
+		return ""
+	}
+
 	return fmt.Sprintf("%s.%s", e.Domain, e.EntityID)
 }
 

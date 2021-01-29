@@ -48,6 +48,8 @@ func initTriggers(config *config.Gotomation) {
 			switch triggerName {
 			case "dehumidifier":
 				action = new(triggers.Dehumidifier)
+			case "harmony":
+				action = new(triggers.Harmony)
 			default:
 				l.Warn().
 					Str("trigger", triggerName).
@@ -69,6 +71,7 @@ func initTriggers(config *config.Gotomation) {
 
 // EventCallback is called when a listen event occurs
 func EventCallback(msg model.HassAPIObject) {
+	l := logging.NewLogger("EventCallback")
 	mutex.Lock()
 	defer mutex.Unlock()
 
@@ -78,14 +81,23 @@ func EventCallback(msg model.HassAPIObject) {
 
 	event := msg.(*model.HassEvent)
 
+	l.Trace().
+		EmbedObject(event).
+		Msg("Event received by the callback func")
+
 	// Look for the entity
 	for _, t := range Triggers {
 		if !t.GetActionable().IsEnabled() {
 			continue
 		}
 
+		// Checking event types if defined
+		toTriggerEvents := core.StringInSlice(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
+
 		eventEntity := model.NewHassEntity(event.Event.Data.EntityID)
-		if eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger()) {
+		toTriggerEntities := eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger())
+
+		if toTriggerEvents || toTriggerEntities {
 			// Call object's trigger func
 			t.GetActionable().Trigger(event)
 		}
