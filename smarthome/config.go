@@ -8,15 +8,12 @@ import (
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/smarthome/checkers"
+	"github.com/nmaupu/gotomation/smarthome/globals"
 	"github.com/nmaupu/gotomation/smarthome/triggers"
 	"github.com/robfig/cron"
 )
 
 var (
-	// Checkers stores all checkers
-	Checkers map[string]core.Checkable
-	// Triggers stores all triggers
-	Triggers map[string]core.Triggerable
 	// mutex is used to lock map access by one goroutine only
 	mutex sync.Mutex
 	// cron
@@ -31,11 +28,12 @@ func Init(config config.Gotomation) {
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
+	initZone(&config)
 }
 
 func initTriggers(config *config.Gotomation) {
 	l := logging.NewLogger("initTriggers")
-	Triggers = make(map[string]core.Triggerable, 0)
+	globals.Triggers = make(map[string]core.Triggerable, 0)
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
@@ -66,7 +64,7 @@ func initTriggers(config *config.Gotomation) {
 				Bool("enabled", trigger.Action.IsEnabled()).
 				Msg("Initializing trigger")
 
-			Triggers[triggerName] = trigger
+			globals.Triggers[triggerName] = trigger
 		}
 	}
 }
@@ -75,7 +73,7 @@ func initCheckers(config *config.Gotomation) {
 	l := logging.NewLogger("initCheckers")
 
 	// (Re)init checkers map
-	Checkers = make(map[string]core.Checkable, 0)
+	globals.Checkers = make(map[string]core.Checkable, 0)
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
@@ -104,7 +102,7 @@ func initCheckers(config *config.Gotomation) {
 				Bool("enabled", checker.Module.IsEnabled()).
 				Msg("Initializing checker")
 
-			Checkers[moduleName] = checker
+			globals.Checkers[moduleName] = checker
 		}
 	}
 
@@ -114,7 +112,7 @@ func initCheckers(config *config.Gotomation) {
 // StopAllCheckers stops all checkers
 func StopAllCheckers() {
 	l := logging.NewLogger("StopAllCheckers")
-	for name, checker := range Checkers {
+	for name, checker := range globals.Checkers {
 		l.Info().
 			Str("checker_name", name).
 			Msg("Stopping checker")
@@ -125,7 +123,7 @@ func StopAllCheckers() {
 // StartAllCheckers stops all checkers
 func StartAllCheckers() {
 	l := logging.NewLogger("StartAllCheckers")
-	for name, checker := range Checkers {
+	for name, checker := range globals.Checkers {
 		l.Info().
 			Str("checker_name", name).
 			Msg("Starting checker")
@@ -167,13 +165,25 @@ func StopCron() {
 	}
 }
 
+func initZone(config *config.Gotomation) {
+	l := logging.NewLogger("initZone")
+	var err error
+
+	globals.Coords, err = core.NewLatitudeLongitude(config.HomeAssistant.HomeZoneName)
+	if err != nil {
+		l.Error().Err(err).
+			Str("zone_name", config.HomeAssistant.HomeZoneName).
+			Msg("Unable to get coordinate from zone name")
+	}
+}
+
 // EventCallback is called when a listen event occurs
 func EventCallback(msg model.HassAPIObject) {
 	l := logging.NewLogger("EventCallback")
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if Triggers == nil || len(Triggers) == 0 {
+	if globals.Triggers == nil || len(globals.Triggers) == 0 {
 		return
 	}
 
@@ -184,7 +194,7 @@ func EventCallback(msg model.HassAPIObject) {
 		Msg("Event received by the callback func")
 
 	// Look for the entity
-	for _, t := range Triggers {
+	for _, t := range globals.Triggers {
 		if !t.GetActionable().IsEnabled() {
 			continue
 		}

@@ -10,6 +10,7 @@ type Gotomation struct {
 		Host            string   `mapstructure:"host"`
 		Token           string   `mapstructure:"token"`
 		SubscribeEvents []string `mapstructure:"subscribe_events"`
+		HomeZoneName    string   `mapstructure:"home_zone_name"`
 	} `mapstructure:"home_assistant"`
 
 	// Modules configuration
