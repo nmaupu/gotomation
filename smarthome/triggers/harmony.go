@@ -7,10 +7,16 @@ import (
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
+	"github.com/nmaupu/gotomation/smarthome/globals"
 )
 
 var (
 	_ core.Actionable = (*Harmony)(nil)
+)
+
+const (
+	offsetDawn = 30 * time.Minute
+	offsetDusk = -30 * time.Minute
 )
 
 // Harmony checks for harmony remote button press and takes action accordingly
@@ -31,6 +37,8 @@ type command struct {
 	Service string `mapstructure:"service"`
 	// Optional Delay to wait at the end of this action call
 	Delay time.Duration `mapstructure:"delay"`
+	// OnlyDark activate this command only when it's dark outside
+	OnlyDark bool `mapstructure:"only_dark"`
 }
 
 // Trigger godoc
@@ -55,15 +63,22 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 			Str("cmd_entity", cmd.Entity.GetEntityIDFullName()).
 			Str("cmd_service", cmd.Service).
 			Str("cmd_delay", cmd.Delay.String()).
+			Bool("cmd_only_dark", cmd.OnlyDark).
 			Logger()
-		cmdLogger.Debug().Msg("Calling service")
-		if cmd.Entity.EntityID != "" && cmd.Entity.Domain != "" && cmd.Service != "" {
-			err := httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service)
-			if err != nil {
-				cmdLogger.Error().Err(err).Msg("An error occurred calling service")
+
+		isDarkNow := globals.Coords.IsDarkNow(offsetDawn, offsetDusk)
+		if cmd.OnlyDark && !isDarkNow {
+			cmdLogger.Debug().Msg("Not dark now, service not called")
+		} else if (cmd.OnlyDark && isDarkNow) || !cmd.OnlyDark {
+			cmdLogger.Debug().Msg("Calling service")
+			if cmd.Entity.EntityID != "" && cmd.Entity.Domain != "" && cmd.Service != "" {
+				err := httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service)
+				if err != nil {
+					cmdLogger.Error().Err(err).Msg("An error occurred calling service")
+				}
 			}
+			time.Sleep(cmd.Delay)
 		}
-		time.Sleep(cmd.Delay)
 	}
 
 }

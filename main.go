@@ -35,11 +35,11 @@ func main() {
 	vi.OnConfigChange(func(e fsnotify.Event) {
 		l := logging.NewLogger("OnConfigChange")
 		l.Info().Str("config", e.Name).Msg("Reloading configuration")
-		reloadConfig(vi)
+		loadConfig(vi, true)
 	})
 
 	// Load config when starting
-	reloadConfig(vi)
+	loadConfig(vi, false)
 
 	// Main loop, ctrl+c to stop
 	interrupt := make(chan os.Signal, 1)
@@ -73,10 +73,6 @@ func handleFlags() gotomationFlags {
 }
 
 func setLogLevel(lvl string) {
-	if lvl == "" {
-		return
-	}
-
 	l := logging.NewLogger("setLogLevel")
 
 	err := logging.SetVerbosity(lvl)
@@ -100,7 +96,7 @@ func stop() {
 	l.Debug().Msg("All go routines terminated")
 }
 
-func reloadConfig(vi *viper.Viper) {
+func loadConfig(vi *viper.Viper, isReloading bool) {
 	l := logging.NewLogger("reloadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
 	config := config.Gotomation{}
 	isErr := false
@@ -118,9 +114,15 @@ func reloadConfig(vi *viper.Viper) {
 	}
 
 	if !isErr {
-		setLogLevel(config.LogLevel)
+		if config.LogLevel != "" {
+			l.Info().Str("log_level", config.LogLevel).Msg("Setting log level using configuration file's value")
+			setLogLevel(config.LogLevel)
+		}
 
-		stop()
+		// Stopping only when reloading
+		if isReloading {
+			stop()
+		}
 		httpclient.Init(config)
 		smarthome.Init(config)
 
