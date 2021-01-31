@@ -1,0 +1,71 @@
+version: 2.1
+executors:
+  golang-executor:
+    environment:
+        - ORG_NAME: nmaupu
+        - PROJECT_NAME: gotomation
+    docker:
+      - image: circleci/golang:1.15
+    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+
+# https://circleci.com/docs/2.0/reusing-config
+
+commands:
+  cmd_compile:
+    description: Compile gotomation binary file
+    parameters:
+      release_name:
+        type: string
+        default: "main"
+    steps:
+      - checkout
+      - run:
+          name: Compilation
+          command: |
+            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release make build
+      - save_cache:
+          name: Saving compiled binary to cache
+          key: release-{{ .Revision }}-<< parameters.release_name >>
+          paths:
+            - release
+
+jobs:
+  prepare-release:
+    executor: golang-executor
+    steps:
+      - cmd_compile:
+          release_name: ${CIRCLE_TAG}
+  release-github:
+    executor: golang-executor
+    steps:
+      - restore_cache:
+          keys:
+            - release-{{ .Revision }}-${CIRCLE_TAG}
+      - run:
+          name: Publish release on Github
+          command: |
+            go get github.com/tcnksm/ghr
+            cd $GOPATH/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+            BIN_DIR=release make CI-process-release
+
+workflows:
+  version: 2.1
+  branch:
+    jobs:
+      - prepare-release
+  release:
+    jobs:
+      - prepare-release:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+      - release-github:
+          requires:
+            - prepare-release
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
