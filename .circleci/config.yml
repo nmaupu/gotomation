@@ -27,7 +27,7 @@ commands:
             RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=darwin GOARCH=amd64 make build
       - save_cache:
           name: Saving compiled binary to cache
-          key: release-{{ .Revision }}-{{ CIRCLE_TAG }}
+          key: release-{{ .Revision }}-{{ .Branch }}
           paths:
             - release
 
@@ -43,12 +43,12 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - release-{{ .Revision }}-{{ CIRCLE_TAG }}
+            - release-{{ .Revision }}-{{ .Branch }}
       - run:
           name: Publish release on Github
           command: |
             go get github.com/tcnksm/ghr
-            cd $GOPATH/src/github.com/{{ ORG_NAME }}/{{ REPO_NAME }}
+            cd $GOPATH/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
             BIN_DIR=release make CI-process-release
 
 workflows:
