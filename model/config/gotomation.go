@@ -22,3 +22,8 @@ type Gotomation struct {
 	// Crons configuration
 	Crons []interface{} `mapstructure:"crons"`
 }
+
+// Validate indicates whether or not the config is valid for gotomation to run
+func (g Gotomation) Validate() bool {
+	return g.HomeAssistant.Host == "" || g.HomeAssistant.Token == ""
+}
