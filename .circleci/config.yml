@@ -22,12 +22,15 @@ commands:
       - run:
           name: Compilation
           command: |
-            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release make build
+            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=linux  GOARCH=amd64 make build
+            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=linux  GOARCH=arm GOARM=5 make build
+            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=darwin GOARCH=amd64 make build
       - save_cache:
           name: Saving compiled binary to cache
           key: release-{{ .Revision }}-<< parameters.release_name >>
           paths:
             - release
+            - Makefile
 
 jobs:
   prepare-release:
@@ -46,6 +49,7 @@ jobs:
           command: |
             go get github.com/tcnksm/ghr
             cd $GOPATH/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+            ls -la
             BIN_DIR=release make CI-process-release
 
 workflows:

@@ -6,27 +6,31 @@ VERSION ?= $(CIRCLE_TAG)
 PKG_NAME = github.com/nmaupu/gotomation
 LDFLAGS = -ldflags="-X '$(PKG_NAME)/app.ApplicationVersion=$(VERSION)' -X '$(PKG_NAME)/app.BuildDate=$(shell date)'"
 
-.PHONY: fmt build clean test all
-
+.PHONY: all
 all: build
 
+.PHONY: fmt
 fmt:
 	go fmt ./...
 
+.PHONY: build
 build $(BIN_DIR)/$(BIN_NAME): $(BIN_DIR)
 	# TODO: HTTP /version, /health and maybe other checking stuff
-	env GO111MODULE=on CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(BIN_DIR)/$(BIN_NAME) $(LDFLAGS)
+	env GO111MODULE=on CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) go build -o $(BIN_DIR)/$(BIN_NAME)-$(GOOS)_$(GOARCH) $(LDFLAGS)
 
+.PHONY: clean
 clean:
 	go clean -i
 	rm -rf $(BIN)
 
+.PHONY: test
 test:
 	go test ./...
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
+.PHONY: CI-process-release
 CI-process-release:
 	@echo "Version to be released: $(CIRCLE_TAG)"
 	ghr -t $(GITHUB_TOKEN) \
