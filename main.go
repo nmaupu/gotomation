@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -124,6 +125,7 @@ func loadConfig(vi *viper.Viper, isReloading bool) {
 			l.Info().Str("log_level", config.LogLevel).Msg("Setting log level using configuration file's value")
 			setLogLevel(config.LogLevel)
 		}
+		l.Trace().Str("config", fmt.Sprintf("%+v", config)).Msg("Config dump")
 
 		// Stopping only when reloading
 		if isReloading {
