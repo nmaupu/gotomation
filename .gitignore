@@ -18,3 +18,4 @@
 *.swo
 bin/
 gotomation.yaml
+release/
