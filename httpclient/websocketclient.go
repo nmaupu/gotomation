@@ -263,10 +263,14 @@ func (c *WebSocketClient) workerRequestsHandler() {
 				continue
 			}
 
+			// if c.conn is nil, something is wrong with the object (reloading config ?)
+			if c.conn == nil {
+				// ignoring message
+				continue
+			}
+
 			l.Info().Msg("Processing request")
-
 			data, _ := json.Marshal(request.Data)
-
 			l.Trace().Msg("Sending request to the websocket server")
 			err := wsutil.WriteServerMessage(c.conn, ws.OpText, data)
 			if err != nil {
