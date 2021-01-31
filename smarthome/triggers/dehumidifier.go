@@ -51,17 +51,6 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 			return // Should not happen
 		}
 
-		if !t.inTimeRange() {
-			l.Debug().
-				Float64("current", currentHum).
-				Float64("threshold_min", t.ThresholdMin).
-				Float64("threshold_max", t.ThresholdMax).
-				Str("time_beg", t.TimeBeg.Format("15:04:05")).
-				Str("time_end", t.TimeEnd.Format("15:04:05")).
-				Msg("Current time is not in range, nothing to do")
-			return
-		}
-
 		l.Trace().
 			EmbedObject(event).
 			Msg("Event received")
@@ -71,6 +60,17 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 			l.Error().Err(err).
 				Str("device", t.SwitchEntity.GetEntityIDFullName()).
 				Msg("Error, unable to get state for device")
+		}
+
+		if !t.inTimeRange() && switchState.State.State != "on" { // If not in time range, let it get under threshold before switching off
+			l.Debug().
+				Float64("current", currentHum).
+				Float64("threshold_min", t.ThresholdMin).
+				Float64("threshold_max", t.ThresholdMax).
+				Str("time_beg", t.TimeBeg.Format("15:04:05")).
+				Str("time_end", t.TimeEnd.Format("15:04:05")).
+				Msg("Current time is not in range, nothing to do")
+			return
 		}
 
 		if currentHum >= t.ThresholdMax {
