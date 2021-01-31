@@ -23,7 +23,7 @@ type gotomationFlags struct {
 }
 
 func main() {
-	//l := logging.NewLogger("main")
+	l := logging.NewLogger("main")
 	gotoFlags := handleFlags()
 
 	// Get config from file
@@ -40,6 +40,12 @@ func main() {
 
 	// Load config when starting
 	loadConfig(vi, false)
+
+	// Display binary information
+	l.Info().
+		Str("version", app.ApplicationVersion).
+		Str("build_date", app.BuildDate).
+		Msg("Binary compilation info")
 
 	// Main loop, ctrl+c to stop
 	interrupt := make(chan os.Signal, 1)
