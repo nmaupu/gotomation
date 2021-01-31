@@ -106,39 +106,46 @@ func stop() {
 func loadConfig(vi *viper.Viper, isReloading bool) {
 	l := logging.NewLogger("reloadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
 	config := config.Gotomation{}
-	isErr := false
+	reloadSleepDur := 5 * time.Second
 
 	if err := vi.ReadInConfig(); err != nil {
-		isErr = true
-		l.Error().Err(err).Msg("Unable to read config file")
+		l.Error().Err(err).Msgf("Unable to read config file, retrying in %s", reloadSleepDur.String())
+		time.Sleep(reloadSleepDur)
+		loadConfig(vi, isReloading)
+		return
 	}
 
-	if !isErr {
-		if err := vi.Unmarshal(&config); err != nil {
-			isErr = true
-			l.Error().Err(err).Msg("Unable to unmarshal config file")
-		}
+	if err := vi.Unmarshal(&config); err != nil {
+		l.Error().Err(err).Msg("Unable to unmarshal config file")
+		loadConfig(vi, isReloading)
+		return
 	}
 
-	if !isErr {
-		if config.LogLevel != "" {
-			l.Info().Str("log_level", config.LogLevel).Msg("Setting log level using configuration file's value")
-			setLogLevel(config.LogLevel)
-		}
-		l.Trace().Str("config", fmt.Sprintf("%+v", config)).Msg("Config dump")
-
-		// Stopping only when reloading
-		if isReloading {
-			stop()
-		}
-		httpclient.Init(config)
-		smarthome.Init(config)
-
-		// Adding callbacks for server communication, start and subscribe to events
-		httpclient.WebSocketClientSingleton.RegisterCallback("event", smarthome.EventCallback, model.HassEvent{})
-		httpclient.WebSocketClientSingleton.Start()
-		for _, sub := range config.HomeAssistant.SubscribeEvents {
-			httpclient.WebSocketClientSingleton.SubscribeEvents(sub)
-		}
+	if !config.Validate() { // On some systems (rpi), reload succeeds but returns an empty object...
+		l.Error().Err(fmt.Errorf("Config is not valid or is empty, retrying to reload in %s", reloadSleepDur.String())).Send()
+		time.Sleep(reloadSleepDur)
+		loadConfig(vi, isReloading)
+		return
 	}
+
+	if config.LogLevel != "" {
+		l.Info().Str("log_level", config.LogLevel).Msg("Setting log level using configuration file's value")
+		setLogLevel(config.LogLevel)
+	}
+	l.Trace().Str("config", fmt.Sprintf("%+v", config)).Msg("Config dump")
+
+	// Stopping only when reloading
+	if isReloading {
+		stop()
+	}
+	httpclient.Init(config)
+	smarthome.Init(config)
+
+	// Adding callbacks for server communication, start and subscribe to events
+	httpclient.WebSocketClientSingleton.RegisterCallback("event", smarthome.EventCallback, model.HassEvent{})
+	httpclient.WebSocketClientSingleton.Start()
+	for _, sub := range config.HomeAssistant.SubscribeEvents {
+		httpclient.WebSocketClientSingleton.SubscribeEvents(sub)
+	}
+
 }
