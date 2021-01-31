@@ -3,7 +3,7 @@ BIN_NAME=gotomation
 GOOS ?= linux
 GOARCH ?= amd64
 CIRCLE_TAG ?= main
-VERSION ?= $(CIRCLE_TAG)
+VERSION = $(CIRCLE_TAG)
 PKG_NAME = github.com/nmaupu/gotomation
 LDFLAGS = -ldflags="-X '$(PKG_NAME)/app.ApplicationVersion=$(VERSION)' -X '$(PKG_NAME)/app.BuildDate=$(shell date)'"
 
