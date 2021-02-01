@@ -1,3 +1,46 @@
+log_level: debug
+
 home_assistant:
-  path: 127.0.0.1:8123
-  token: user_token
+  host: hass.home.fossar.net:8123
+  subscribe_events:
+    - state_changed
+    - roku_command
+  home_zone_name: home # Get latitude and longitude from configured zone
+
+# This uses github.com/robfig/cron
+crons:
+  - expr: 0 1 0 * * *
+    action: turn_off
+    entities:
+      - input_boolean.override_estrade_dehum
+
+modules:
+  - internetChecker:
+      enabled: true
+      interval: 2s
+      ping_host: 8.8.8.8
+      max_reboot_every: 180s
+      restart_entity: switch.living_fbx
+
+triggers:
+  - dehumidifier:
+      enabled: false
+      trigger_entities:
+        - sensor.estrade_am2301_humidity
+        - input_boolean.override_estrade_dehum
+      switch_entity: switch.estrade_relay
+      time_beg: 10:00:00
+      time_end: 21:30:00
+      threshold_min: 49
+      threshold_max: 60
+      manual_override: input_boolean.override_estrade_dehum
+  - harmony:
+      enabled: true
+      trigger_events:
+        - roku_command
+      work_actions:
+        - key: Up
+          commands:
+            - {entity: light.escalier_switch, service: toggle, only_dark: true}
+            - {delay: 250ms}
+
