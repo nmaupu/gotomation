@@ -1,5 +1,13 @@
 package config
 
+import (
+	"fmt"
+
+	"github.com/nmaupu/gotomation/logging"
+	"github.com/pkg/errors"
+	"github.com/spf13/viper"
+)
+
 // Gotomation is the struct to unmarshal configuration
 // It is using mapstructure for a compatibility with Viper config files
 type Gotomation struct {
@@ -26,4 +34,34 @@ type Gotomation struct {
 // Validate indicates whether or not the config is valid for gotomation to run
 func (g Gotomation) Validate() bool {
 	return g.HomeAssistant.Host != "" && g.HomeAssistant.Token != ""
+}
+
+// ReadConfigFromFile loads or reloads config from viper's config file
+func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config Gotomation)) error {
+	l := logging.NewLogger("Gotomation.LoadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
+
+	if err := vi.ReadInConfig(); err != nil {
+		return errors.Wrap(err, "Unable to read config file")
+	}
+
+	if err := vi.Unmarshal(&g); err != nil {
+		return errors.Wrap(err, "Unable to unmarshal config file")
+	}
+
+	if !g.Validate() { // On some systems (rpi), reload succeeds but returns an empty object for obscure reasons...
+		return fmt.Errorf("Config is not valid: Home Assistant host and token must be specified")
+	}
+
+	if g.LogLevel != "" {
+		l.Info().Str("log_level", g.LogLevel).Msg("Setting log level using configuration file's value")
+		err := logging.SetVerbosity(g.LogLevel)
+		if err != nil {
+			l.Error().Err(err).Msg("Setting verbosity to default (info)")
+			logging.SetVerbosity("info")
+		}
+	}
+	l.Trace().Str("config", fmt.Sprintf("%+v", g)).Msg("Config dump")
+
+	loadConfig(g)
+	return nil
 }

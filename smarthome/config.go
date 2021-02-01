@@ -3,7 +3,9 @@ package smarthome
 import (
 	"sync"
 
+	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/core"
+	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
@@ -22,13 +24,35 @@ var (
 
 // Init inits modules from configuration
 func Init(config config.Gotomation) {
+	l := logging.NewLogger("Init")
 	mutex.Lock()
 	defer mutex.Unlock()
+
+	if err := initZone(&config); err != nil {
+		l.Error().Err(err).
+			Str("zone_name", config.HomeAssistant.HomeZoneName).
+			Msg("Unable to get coordinate from zone name")
+		return
+	}
 
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
-	initZone(&config)
+}
+
+// StopAndWait stops and free all allocated smarthome object
+func StopAndWait() {
+	l := logging.NewLogger("Stop")
+
+	l.Info().Msg("Stopping service")
+	StopAllCheckers()
+	StopCron()
+	if httpclient.WebSocketClientSingleton != nil {
+		httpclient.WebSocketClientSingleton.Stop()
+	}
+
+	app.RoutinesWG.Wait()
+	l.Debug().Msg("All go routines terminated")
 }
 
 func initTriggers(config *config.Gotomation) {
@@ -165,16 +189,20 @@ func StopCron() {
 	}
 }
 
-func initZone(config *config.Gotomation) {
+func initZone(config *config.Gotomation) error {
 	l := logging.NewLogger("initZone")
 	var err error
 
 	globals.Coords, err = core.NewLatitudeLongitude(config.HomeAssistant.HomeZoneName)
 	if err != nil {
-		l.Error().Err(err).
-			Str("zone_name", config.HomeAssistant.HomeZoneName).
-			Msg("Unable to get coordinate from zone name")
+		return err
 	}
+
+	l.Debug().
+		Float64("latitude", globals.Coords.Latitude).
+		Float64("longitude", globals.Coords.Longitude).
+		Msg("GPS coordinates retrieved")
+	return nil
 }
 
 // EventCallback is called when a listen event occurs

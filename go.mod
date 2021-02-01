@@ -10,6 +10,7 @@ require (
 	github.com/gobwas/ws v1.0.4
 	github.com/kelvins/sunrisesunset v0.0.0-20170601204625-14f1915ad4b4
 	github.com/mitchellh/mapstructure v1.1.2
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.15.0
 	github.com/robfig/cron v1.2.0
 	github.com/rs/zerolog v1.20.0
