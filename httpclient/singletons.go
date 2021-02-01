@@ -5,7 +5,6 @@ import (
 
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
-	"github.com/nmaupu/gotomation/model/config"
 )
 
 var (
@@ -16,20 +15,20 @@ var (
 )
 
 // Init inits all httpclient singletons
-func Init(config config.Gotomation) {
+func Init(hassHost, hassToken string) {
 	l := logging.NewLogger("Init")
 
 	l.Debug().Msg("Creating WebSocketClientSingleton")
 	WebSocketClientSingleton = NewWebSocketClient(
 		model.HassConfig{
-			URL:   url.URL{Scheme: "wss", Host: config.HomeAssistant.Host, Path: "api/websocket"},
-			Token: config.HomeAssistant.Token,
+			URL:   url.URL{Scheme: "wss", Host: hassHost, Path: "api/websocket"},
+			Token: hassToken,
 		})
 
 	l.Debug().Msg("Creating SimpleClientSingleton")
 	SimpleClientSingleton = NewSimpleClient(
 		model.HassConfig{
-			URL:   url.URL{Scheme: "https", Host: config.HomeAssistant.Host, Path: "api"},
-			Token: config.HomeAssistant.Token,
+			URL:   url.URL{Scheme: "https", Host: hassHost, Path: "api"},
+			Token: hassToken,
 		})
 }

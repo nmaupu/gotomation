@@ -3,6 +3,7 @@ package httpclient
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"reflect"
 	"strings"
@@ -238,7 +239,6 @@ func (c *WebSocketClient) workerRequestsHandler() {
 	running := true
 	// Wait for message on the channel
 	for running {
-
 		select {
 		case <-c.workerRequestsHandlerStop:
 			funcLogger.Info().Msg("Stopping workerRequestsHandler routine")
@@ -250,16 +250,16 @@ func (c *WebSocketClient) workerRequestsHandler() {
 				Str("type", request.Data.GetType()).
 				Logger()
 
-			if !SimpleClientSingleton.CheckServerAPIHealth() {
-				l.Warn().Msg("Server is unavailable, requeuing")
-				c.requeueRequest(request, 2*time.Second)
-				continue
-			}
-
 			if !c.authenticated && !strings.HasPrefix(request.Data.GetType(), "auth") {
 				// not authenticated yet, requeue
 				l.Debug().Msg("Not authenticated yet, requeuing request")
 				c.requeueRequest(request, 1*time.Second)
+				continue
+			}
+
+			if c.authenticated && !SimpleClientSingleton.CheckServerAPIHealth() {
+				l.Warn().Msg("Server is unavailable, requeuing")
+				c.requeueRequest(request, 2*time.Second)
 				continue
 			}
 
@@ -282,8 +282,7 @@ func (c *WebSocketClient) workerRequestsHandler() {
 			request.LastUpdateTime = time.Now()
 			c.requestsTracker.InProgress(request.Data.GetID(), request)
 		}
-
-	}
+	} // for running
 
 	funcLogger.Info().Msg("workerRequestsHandler stopped")
 }
@@ -387,22 +386,21 @@ func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 		l.Debug().
 			Uint64("id", result.GetID()).
 			Msg("Success result received for request")
-	} else {
-		l.Warn().
-			Uint64("id", result.GetID()).
-			Str("error_code", result.Error.Code).
-			Str("error_message", result.Error.Message).
-			Msg("Failed result received for request")
 	}
 
 	req := c.requestsTracker.Done(result.GetID())
 	if !result.Success {
 		after := 3 * time.Second
-
 		if result.Error.Code == ErrorCodeIDReuse || result.Error.Code == ErrorInvalidFormat {
 			after = 10 * time.Millisecond // retry sooner than later
 			req.Data = req.Data.Duplicate(c.NextMessageID())
 		}
+
+		l.Warn().
+			Uint64("id", result.GetID()).
+			Str("error_code", result.Error.Code).
+			Str("error_message", result.Error.Message).
+			Msgf("Failed result received for request, requeuing in %s", after.String())
 
 		c.requeueRequest(req, after)
 	}
@@ -427,9 +425,10 @@ func (c *WebSocketClient) handleAuthOK(data model.HassAPIObject) {
 func (c *WebSocketClient) handleAuthInvalid(data model.HassAPIObject) {
 	l := logging.NewLogger("WebSocketClient.handleAuthInvalid")
 	result := data.(*model.HassResult)
-	l.Info().
-		Str("reason", result.Message).
+	l.Error().
+		Err(fmt.Errorf(result.Message)).
 		Str("type", result.GetType()).
-		Msgf("Message received from server")
+		Msgf("Message received from server, cannot continue")
 	c.authenticated = false
+	c.Stop()
 }

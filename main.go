@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -21,11 +20,17 @@ import (
 type gotomationFlags struct {
 	configFile string
 	verbosity  string
+	HassToken  string
 }
 
 func main() {
 	l := logging.NewLogger("main")
 	gotoFlags := handleFlags()
+
+	gotoConfig := config.Gotomation{}
+	if gotoFlags.HassToken != "" {
+		gotoConfig.HomeAssistant.Token = gotoFlags.HassToken
+	}
 
 	// Get config from file
 	vi := viper.New()
@@ -36,11 +41,15 @@ func main() {
 	vi.OnConfigChange(func(e fsnotify.Event) {
 		l := logging.NewLogger("OnConfigChange")
 		l.Info().Str("config", e.Name).Msg("Reloading configuration")
-		loadConfig(vi, true)
+
+		configChange(vi, gotoConfig, func(config config.Gotomation) {
+			smarthome.StopAndWait()
+			loadConfig(config)
+		})
 	})
 
 	// Load config when starting
-	loadConfig(vi, false)
+	configChange(vi, gotoConfig, loadConfig)
 
 	// Display binary information
 	l.Info().
@@ -56,89 +65,22 @@ func main() {
 	for range ticker.C {
 		select {
 		case <-interrupt:
-			stop()
+			smarthome.StopAndWait()
 			return
 		}
 	}
 }
 
-func handleFlags() gotomationFlags {
-	l := logging.NewLogger("handleFlags")
-	gotoFlags := gotomationFlags{}
-	flag.StringVarP(&gotoFlags.configFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
-	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Specify log's verbosity")
-
-	flag.Parse()
-
-	if gotoFlags.configFile == "" {
-		l.Fatal().Msg("Configuration file not provided")
-	}
-
-	setLogLevel(gotoFlags.verbosity)
-
-	return gotoFlags
-}
-
-func setLogLevel(lvl string) {
-	l := logging.NewLogger("setLogLevel")
-
-	err := logging.SetVerbosity(lvl)
+func configChange(vi *viper.Viper, config config.Gotomation, loadFunc func(config config.Gotomation)) {
+	l := logging.NewLogger("reloadConf")
+	err := config.ReadConfigFromFile(vi, loadFunc)
 	if err != nil {
-		l.Error().Err(err).Msg("Setting verbosity to default (info)")
-		logging.SetVerbosity("info")
+		l.Error().Err(err).Msgf("An error occurred reloading configuration")
 	}
 }
 
-func stop() {
-	l := logging.NewLogger("stop")
-
-	l.Info().Msg("Stopping service")
-	smarthome.StopAllCheckers()
-	smarthome.StopCron()
-	if httpclient.WebSocketClientSingleton != nil {
-		httpclient.WebSocketClientSingleton.Stop()
-	}
-
-	app.RoutinesWG.Wait()
-	l.Debug().Msg("All go routines terminated")
-}
-
-func loadConfig(vi *viper.Viper, isReloading bool) {
-	l := logging.NewLogger("reloadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
-	config := config.Gotomation{}
-	reloadSleepDur := 5 * time.Second
-
-	if err := vi.ReadInConfig(); err != nil {
-		l.Error().Err(err).Msgf("Unable to read config file, retrying in %s", reloadSleepDur.String())
-		time.Sleep(reloadSleepDur)
-		loadConfig(vi, isReloading)
-		return
-	}
-
-	if err := vi.Unmarshal(&config); err != nil {
-		l.Error().Err(err).Msg("Unable to unmarshal config file")
-		loadConfig(vi, isReloading)
-		return
-	}
-
-	if !config.Validate() { // On some systems (rpi), reload succeeds but returns an empty object...
-		l.Error().Err(fmt.Errorf("Config is not valid or is empty, retrying to reload in %s", reloadSleepDur.String())).Send()
-		time.Sleep(reloadSleepDur)
-		loadConfig(vi, isReloading)
-		return
-	}
-
-	if config.LogLevel != "" {
-		l.Info().Str("log_level", config.LogLevel).Msg("Setting log level using configuration file's value")
-		setLogLevel(config.LogLevel)
-	}
-	l.Trace().Str("config", fmt.Sprintf("%+v", config)).Msg("Config dump")
-
-	// Stopping only when reloading
-	if isReloading {
-		stop()
-	}
-	httpclient.Init(config)
+func loadConfig(config config.Gotomation) {
+	httpclient.Init(config.HomeAssistant.Host, config.HomeAssistant.Token)
 	smarthome.Init(config)
 
 	// Adding callbacks for server communication, start and subscribe to events
@@ -147,5 +89,24 @@ func loadConfig(vi *viper.Viper, isReloading bool) {
 	for _, sub := range config.HomeAssistant.SubscribeEvents {
 		httpclient.WebSocketClientSingleton.SubscribeEvents(sub)
 	}
+}
 
+func handleFlags() gotomationFlags {
+	l := logging.NewLogger("handleFlags")
+	gotoFlags := gotomationFlags{}
+	flag.StringVarP(&gotoFlags.configFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
+	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Specify log's verbosity")
+	flag.StringVarP(&gotoFlags.HassToken, "token", "t", "", "Specify token to use for Home Assistant API calls")
+
+	flag.Parse()
+
+	if gotoFlags.configFile == "" {
+		l.Fatal().Msg("Configuration file not provided")
+	}
+
+	if err := logging.SetVerbosity(gotoFlags.verbosity); err != nil {
+		logging.SetVerbosity("info")
+	}
+
+	return gotoFlags
 }
