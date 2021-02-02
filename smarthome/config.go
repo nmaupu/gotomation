@@ -2,6 +2,7 @@ package smarthome
 
 import (
 	"sync"
+	"time"
 
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/core"
@@ -20,6 +21,8 @@ var (
 	mutex sync.Mutex
 	// cron
 	crontab *cron.Cron
+	// chan to stop sunrise / sunset go routine
+	sunriseSunsetDone = make(chan bool, 1)
 )
 
 // Init inits modules from configuration
@@ -45,6 +48,7 @@ func StopAndWait() {
 	l := logging.NewLogger("Stop")
 
 	l.Info().Msg("Stopping service")
+	StopSunriseSunset()
 	StopAllCheckers()
 	StopCron()
 	if httpclient.WebSocketClientSingleton != nil {
@@ -189,10 +193,15 @@ func StopCron() {
 	}
 }
 
+// StopSunriseSunset stops the sunrise/sunset refresh goroutine
+func StopSunriseSunset() {
+	sunriseSunsetDone <- true
+}
+
 func initZone(config *config.Gotomation) error {
 	l := logging.NewLogger("initZone")
-	var err error
 
+	var err error
 	globals.Coords, err = core.NewLatitudeLongitude(config.HomeAssistant.HomeZoneName)
 	if err != nil {
 		return err
@@ -202,6 +211,28 @@ func initZone(config *config.Gotomation) error {
 		Float64("latitude", globals.Coords.Latitude).
 		Float64("longitude", globals.Coords.Longitude).
 		Msg("GPS coordinates retrieved")
+
+	l.Debug().Msg("Preloading sunrise and sunset dates (long to calculate on PI)")
+	app.RoutinesWG.Add(1)
+	go globals.Coords.GetSunriseSunset(true)
+	app.RoutinesWG.Done()
+	app.RoutinesWG.Add(1)
+	go func() { // updating sunrise / sunset date once in a while
+		defer app.RoutinesWG.Done()
+		l.Debug().Msg("Starting sunrise/sunset refresh go routine")
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-sunriseSunsetDone:
+				l.Debug().Msg("Stopping sunrise/sunset refresh go routine")
+				return
+			case <-ticker.C:
+				globals.Coords.GetSunriseSunset(true)
+			}
+		}
+	}()
+
 	return nil
 }
 

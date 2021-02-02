@@ -310,6 +310,7 @@ func (c *WebSocketClient) workerDaemon() {
 		// A mutex is used so that when stop is called from another go routine, only one go routine
 		// can change conn object at a time.
 		// Otherwise, when testing if conn == nil, it might or might not be the case yet...
+		l.Trace().Msg("Waiting for a message from the server...")
 		recv, _, err := wsutil.ReadServerData(c.conn)
 		if err != nil {
 			c.mutexConn.Lock()
