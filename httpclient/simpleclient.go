@@ -113,15 +113,20 @@ func (c *SimpleClient) CheckServerAPIHealth() bool {
 }
 
 // CallService calls a service
-func (c *SimpleClient) CallService(entity model.HassEntity, service string) error {
+func (c *SimpleClient) CallService(entity model.HassEntity, service string, extraParams map[string]string) error {
 	req, err := c.HassConfig.NewHTTPRequest(http.MethodPost, fmt.Sprintf("services/%s/%s", entity.Domain, service), nil)
 	if err != nil {
 		return err
 	}
 
-	reqBody, err := json.Marshal(map[string]string{
+	params := map[string]string{
 		"entity_id": entity.GetEntityIDFullName(),
-	})
+	}
+	for k, v := range extraParams {
+		params[k] = v
+	}
+
+	reqBody, err := json.Marshal(params)
 	if err != nil {
 		return err
 	}

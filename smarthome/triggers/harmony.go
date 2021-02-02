@@ -1,6 +1,7 @@
 package triggers
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/nmaupu/gotomation/core"
@@ -26,7 +27,11 @@ type Harmony struct {
 }
 
 type workAction struct {
-	Key      string    `mapstructure:"key"`
+	// Key is the key pressed to trigger this workAction
+	Key string `mapstructure:"key"`
+	// OnlyDark triggers this workAction only when it's dark outside
+	OnlyDark bool `mapstructure:"only_dark"`
+	// Commands are all the commands being executed
 	Commands []command `mapstructure:"commands"`
 }
 
@@ -37,8 +42,8 @@ type command struct {
 	Service string `mapstructure:"service"`
 	// Optional Delay to wait at the end of this action call
 	Delay time.Duration `mapstructure:"delay"`
-	// OnlyDark activate this command only when it's dark outside
-	OnlyDark bool `mapstructure:"only_dark"`
+	// Brightness is the brightness to set (for compatible device)
+	Brightness int `mapstructure:"brightness"`
 }
 
 // Trigger godoc
@@ -50,45 +55,54 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 		return
 	}
 
-	l.Trace().
+	l = l.With().
 		Str("event_type", event.Event.EventType).
 		Str("data.source_name", event.Event.Data.SourceName).
 		Str("data.type", event.Event.Data.Type).
 		Str("data.key", event.Event.Data.Key).
-		Msg("Trigger receiver for Harmony")
+		Logger()
 
-	cmds := h.getCommands(event.Event.Data.Key)
-	for _, cmd := range cmds {
-		cmdLogger := l.With().
-			Str("cmd_entity", cmd.Entity.GetEntityIDFullName()).
-			Str("cmd_service", cmd.Service).
-			Str("cmd_delay", cmd.Delay.String()).
-			Bool("cmd_only_dark", cmd.OnlyDark).
-			Logger()
+	l.Trace().Msg("Trigger receiver for Harmony")
 
-		isDarkNow := globals.Coords.IsDarkNow(offsetDawn, offsetDusk)
-		if cmd.OnlyDark && !isDarkNow {
-			cmdLogger.Debug().Msg("Not dark now, service not called")
-		} else if (cmd.OnlyDark && isDarkNow) || !cmd.OnlyDark {
+	wa := h.getWorkAction(event.Event.Data.Key)
+	if wa == nil {
+		l.Warn().Msg("No action for this key")
+		return
+	}
+
+	if !wa.OnlyDark || (wa.OnlyDark && globals.Coords.IsDarkNow(offsetDawn, offsetDusk)) {
+		for _, cmd := range wa.Commands {
+			cmdLogger := l.With().
+				Str("cmd_entity", cmd.Entity.GetEntityIDFullName()).
+				Str("cmd_service", cmd.Service).
+				Str("cmd_delay", cmd.Delay.String()).
+				Int("cmd_brightness", cmd.Brightness).
+				Logger()
+
 			cmdLogger.Debug().Msg("Calling service")
 			if cmd.Entity.EntityID != "" && cmd.Entity.Domain != "" && cmd.Service != "" {
-				err := httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service)
+				extra := make(map[string]string, 0)
+				if cmd.Brightness > 0 {
+					extra["brightness"] = strconv.FormatInt(int64(cmd.Brightness), 10)
+				}
+				err := httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service, extra)
 				if err != nil {
 					cmdLogger.Error().Err(err).Msg("An error occurred calling service")
 				}
 			}
 			time.Sleep(cmd.Delay)
 		}
+	} else {
+		l.Debug().Msg("Not dark now, doing nothing")
 	}
-
 }
 
-func (h *Harmony) getCommands(key string) []command {
+func (h *Harmony) getWorkAction(key string) *workAction {
 	for _, wa := range h.WorkActions {
 		if key == wa.Key {
-			return wa.Commands
+			return &wa
 		}
 	}
 
-	return []command{}
+	return nil
 }
