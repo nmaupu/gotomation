@@ -42,7 +42,7 @@ func (c *CronEntry) Configure(config interface{}, i interface{}) error {
 func (c *CronEntry) GetActionFunc() func() {
 	return func() {
 		for _, entity := range c.Entities {
-			httpclient.SimpleClientSingleton.CallService(entity, c.Action)
+			httpclient.SimpleClientSingleton.CallService(entity, c.Action, map[string]string{})
 		}
 	}
 }
