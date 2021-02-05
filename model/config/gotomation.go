@@ -13,6 +13,10 @@ import (
 type Gotomation struct {
 	// LogLevel is the log level configured
 	LogLevel string `mapstructure:"log_level"`
+	// Google is used to authenticate to Google's API
+	Google struct {
+		CredentialsFile string `mapstructure:"creds_file"`
+	} `mapstructure:"google"`
 	// HomeAssistant server related options
 	HomeAssistant struct {
 		Host            string   `mapstructure:"host"`

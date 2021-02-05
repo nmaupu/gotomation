@@ -1,12 +1,14 @@
 package smarthome
 
 import (
+	"io/ioutil"
 	"sync"
 	"time"
 
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
+	"github.com/nmaupu/gotomation/httpservice"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
@@ -14,6 +16,9 @@ import (
 	"github.com/nmaupu/gotomation/smarthome/globals"
 	"github.com/nmaupu/gotomation/smarthome/triggers"
 	"github.com/robfig/cron"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/calendar/v3"
 )
 
 var (
@@ -23,6 +28,8 @@ var (
 	crontab *cron.Cron
 	// chan to stop sunrise / sunset go routine
 	sunriseSunsetDone = make(chan bool, 1)
+	// httpServer
+	httpServer *httpservice.HTTPService
 )
 
 // Init inits modules from configuration
@@ -41,6 +48,7 @@ func Init(config config.Gotomation) {
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
+	initHTTPServer(&config)
 }
 
 // StopAndWait stops and free all allocated smarthome object
@@ -51,9 +59,12 @@ func StopAndWait() {
 	StopSunriseSunset()
 	StopAllCheckers()
 	StopCron()
+
 	if httpclient.WebSocketClientSingleton != nil {
 		httpclient.WebSocketClientSingleton.Stop()
 	}
+
+	StopHTTPServer()
 
 	app.RoutinesWG.Wait()
 	l.Debug().Msg("All go routines terminated")
@@ -234,6 +245,46 @@ func initZone(config *config.Gotomation) error {
 	}()
 
 	return nil
+}
+
+func initHTTPServer(config *config.Gotomation) {
+	l := logging.NewLogger("initHTTPServer")
+
+	b, err := ioutil.ReadFile(config.Google.CredentialsFile)
+	if err != nil {
+		l.Error().Err(err).Msgf("Unable to load Google credentials file %s", config.Google.CredentialsFile)
+		return
+	}
+
+	googleConfig, _ := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
+	newHTTPService, err := httpservice.NewHTTPService(googleConfig)
+	if err != nil {
+		l.Error().Err(err).Msg("Unable to start HTTP server")
+		return
+	}
+
+	newHTTPService.BindAddr = "127.0.0.1"
+	if httpServer != nil {
+		httpServer.Stop() // stop and GC previously allocated server resources
+	}
+	httpServer = newHTTPService
+	httpServer.Start()
+
+	// Trying to get token from cache file
+	err = httpServer.GoogleConfig.LoadTokenFromCache()
+	if err != nil { // need to load from web
+		authURL := httpServer.GoogleConfig.Config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+		l.Warn().Str("url", authURL).Msg("Link to use to get an auth code for using the Google's API. Use HTTP endpoint /google-validate?auth_code=<mycode> to create a reusable token")
+	}
+
+	l.Info().Msg("Loading Google token for API access from cache file ok")
+}
+
+// StopHTTPServer stops the HTTP server
+func StopHTTPServer() {
+	if httpServer != nil {
+		httpServer.Stop()
+	}
 }
 
 // EventCallback is called when a listen event occurs
