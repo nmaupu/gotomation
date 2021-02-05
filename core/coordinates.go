@@ -6,12 +6,29 @@ import (
 	"time"
 
 	"github.com/kelvins/sunrisesunset"
+	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/pkg/errors"
+)
+
+var (
+	coords coordinates
+	once   sync.Once
 )
 
 // Coordinates represents GPS coordinates using latitude and longitude
-type Coordinates struct {
+type Coordinates interface {
+	GetSunriseSunset() (time.Time, time.Time, error)
+	IsDarkNow(offsetDawn, offsetDusk time.Duration) bool
+	GetLatitude() float64
+	GetLongitude() float64
+	Stop()
+	Start()
+}
+
+// Coordinates represents GPS coordinates using latitude and longitude
+type coordinates struct {
 	Latitude  float64
 	Longitude float64
 
@@ -20,26 +37,83 @@ type Coordinates struct {
 	sunset     time.Time
 	lastUpdate time.Time
 	// mutex ensures that only one thread at a time modifies private variables
-	mutex *sync.Mutex
+	mutex             *sync.Mutex
+	sunriseSunsetDone chan bool
 }
 
-// NewLatitudeLongitude gets the latitude and longitude of a Home Assistant zone entity
-func NewLatitudeLongitude(zoneName string) (Coordinates, error) {
-	entity, err := httpclient.SimpleClientSingleton.GetEntity("zone", zoneName)
-	if err != nil {
-		return Coordinates{}, fmt.Errorf("Unable to get latitude and longitude, err=%v", err)
-	}
+// InitCoordinates gets the latitude and longitude of a Home Assistant zone entity
+func InitCoordinates(zoneName string) error {
+	var err error
+	once.Do(
+		func() {
+			entity, err := httpclient.SimpleClientSingleton.GetEntity("zone", zoneName)
+			if err != nil {
+				err = errors.Wrapf(err, "Unable to get latitude and longitude, err=%v", err)
+			} else {
+				coords = coordinates{
+					Latitude:          entity.State.Attributes["latitude"].(float64),
+					Longitude:         entity.State.Attributes["longitude"].(float64),
+					mutex:             &sync.Mutex{},
+					sunriseSunsetDone: make(chan bool, 1),
+				}
+			}
+		})
 
-	coords := Coordinates{
-		Latitude:  entity.State.Attributes["latitude"].(float64),
-		Longitude: entity.State.Attributes["longitude"].(float64),
-		mutex:     &sync.Mutex{},
-	}
-	return coords, nil
+	return err
+}
+
+// Coords returns the Coordinates singleton
+func Coords() Coordinates {
+	return &coords
+}
+
+// StopSunriseSunset stops the sunrise/sunset refresh goroutine
+func (c *coordinates) Stop() {
+	c.sunriseSunsetDone <- true
+}
+
+func (c *coordinates) Start() {
+	l := logging.NewLogger("Coordinates.Start")
+
+	// first init before ticker ticks
+	app.RoutinesWG.Add(1)
+	go func() {
+		defer app.RoutinesWG.Done()
+		c.getSunriseSunset(true)
+	}()
+
+	app.RoutinesWG.Add(1)
+	go func() { // updating sunrise / sunset dates once in a while
+		defer app.RoutinesWG.Done()
+		l.Debug().Msg("Starting sunrise/sunset refresh go routine")
+		ticker := time.NewTicker(6 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-c.sunriseSunsetDone:
+				l.Debug().Msg("Stopping sunrise/sunset refresh go routine")
+				return
+			case <-ticker.C:
+				c.getSunriseSunset(true)
+			}
+		}
+	}()
+}
+
+func (c *coordinates) GetLatitude() float64 {
+	return c.Latitude
+}
+
+func (c *coordinates) GetLongitude() float64 {
+	return c.Longitude
+}
+
+func (c *coordinates) GetSunriseSunset() (time.Time, time.Time, error) {
+	return c.getSunriseSunset(false)
 }
 
 // GetSunriseSunset gets sunrise and sunset times
-func (c *Coordinates) GetSunriseSunset(noCache bool) (time.Time, time.Time, error) {
+func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, error) {
 	now := time.Now().Local()
 
 	if c.mutex == nil {
@@ -85,9 +159,9 @@ func (c *Coordinates) GetSunriseSunset(noCache bool) (time.Time, time.Time, erro
 }
 
 // IsDarkNow returns true if it's dark outside
-func (c *Coordinates) IsDarkNow(offsetDawn, offsetDusk time.Duration) bool {
+func (c *coordinates) IsDarkNow(offsetDawn, offsetDusk time.Duration) bool {
 	now := time.Now()
-	sunrise, sunset, _ := c.GetSunriseSunset(false)
+	sunrise, sunset, _ := c.GetSunriseSunset()
 	sunrise = sunrise.Add(offsetDawn)
 	sunset = sunset.Add(offsetDusk)
 	return now.Before(sunrise) || now.After(sunset)
