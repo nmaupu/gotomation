@@ -1,9 +1,7 @@
 package smarthome
 
 import (
-	"io/ioutil"
 	"sync"
-	"time"
 
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/core"
@@ -13,22 +11,18 @@ import (
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/smarthome/checkers"
-	"github.com/nmaupu/gotomation/smarthome/globals"
 	"github.com/nmaupu/gotomation/smarthome/triggers"
+	"github.com/nmaupu/gotomation/thirdparty"
 	"github.com/robfig/cron"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/calendar/v3"
 )
 
 var (
 	// mutex is used to lock map access by one goroutine only
-	mutex sync.Mutex
-	// cron
-	crontab *cron.Cron
-	// chan to stop sunrise / sunset go routine
-	sunriseSunsetDone = make(chan bool, 1)
-	// httpServer
+	mutex      sync.Mutex
+	mCheckers  map[string]core.Checkable
+	mTriggers  map[string]core.Triggerable
+	crontab    *cron.Cron
 	httpServer *httpservice.HTTPService
 )
 
@@ -45,6 +39,7 @@ func Init(config config.Gotomation) {
 		return
 	}
 
+	initGoogle(&config)
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
@@ -70,9 +65,23 @@ func StopAndWait() {
 	l.Debug().Msg("All go routines terminated")
 }
 
+func initGoogle(config *config.Gotomation) {
+	l := logging.NewLogger("initGoogle")
+
+	err := thirdparty.InitGoogleConfig(config.Google.CredentialsFile, calendar.CalendarReadonlyScope)
+	if err != nil {
+		l.Error().Err(err).Msg("Unable to init Google creds")
+	}
+
+	client, err := thirdparty.GetGoogleConfig().GetClient()
+	if err != nil || client == nil {
+		l.Error().Err(err).Msg("Cannot get token from Google, allow Gotomation app first")
+	}
+}
+
 func initTriggers(config *config.Gotomation) {
 	l := logging.NewLogger("initTriggers")
-	globals.Triggers = make(map[string]core.Triggerable, 0)
+	mTriggers = make(map[string]core.Triggerable, 0)
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
@@ -103,7 +112,7 @@ func initTriggers(config *config.Gotomation) {
 				Bool("enabled", trigger.Action.IsEnabled()).
 				Msg("Initializing trigger")
 
-			globals.Triggers[triggerName] = trigger
+			mTriggers[triggerName] = trigger
 		}
 	}
 }
@@ -112,7 +121,7 @@ func initCheckers(config *config.Gotomation) {
 	l := logging.NewLogger("initCheckers")
 
 	// (Re)init checkers map
-	globals.Checkers = make(map[string]core.Checkable, 0)
+	mCheckers = make(map[string]core.Checkable, 0)
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
@@ -141,7 +150,7 @@ func initCheckers(config *config.Gotomation) {
 				Bool("enabled", checker.Module.IsEnabled()).
 				Msg("Initializing checker")
 
-			globals.Checkers[moduleName] = checker
+			mCheckers[moduleName] = checker
 		}
 	}
 
@@ -151,7 +160,7 @@ func initCheckers(config *config.Gotomation) {
 // StopAllCheckers stops all checkers
 func StopAllCheckers() {
 	l := logging.NewLogger("StopAllCheckers")
-	for name, checker := range globals.Checkers {
+	for name, checker := range mCheckers {
 		l.Info().
 			Str("checker_name", name).
 			Msg("Stopping checker")
@@ -162,7 +171,7 @@ func StopAllCheckers() {
 // StartAllCheckers stops all checkers
 func StartAllCheckers() {
 	l := logging.NewLogger("StartAllCheckers")
-	for name, checker := range globals.Checkers {
+	for name, checker := range mCheckers {
 		l.Info().
 			Str("checker_name", name).
 			Msg("Starting checker")
@@ -206,85 +215,40 @@ func StopCron() {
 
 // StopSunriseSunset stops the sunrise/sunset refresh goroutine
 func StopSunriseSunset() {
-	sunriseSunsetDone <- true
+	core.Coords().Stop()
 }
 
 func initZone(config *config.Gotomation) error {
 	l := logging.NewLogger("initZone")
 
 	var err error
-	globals.Coords, err = core.NewLatitudeLongitude(config.HomeAssistant.HomeZoneName)
+	err = core.InitCoordinates(config.HomeAssistant.HomeZoneName)
 	if err != nil {
 		return err
 	}
 
 	l.Debug().
-		Float64("latitude", globals.Coords.Latitude).
-		Float64("longitude", globals.Coords.Longitude).
+		Float64("latitude", core.Coords().GetLatitude()).
+		Float64("longitude", core.Coords().GetLongitude()).
 		Msg("GPS coordinates retrieved")
 
 	l.Debug().Msg("Preloading sunrise and sunset dates (long to calculate on PI)")
-	app.RoutinesWG.Add(1)
-	go globals.Coords.GetSunriseSunset(true)
-	app.RoutinesWG.Done()
-	app.RoutinesWG.Add(1)
-	go func() { // updating sunrise / sunset date once in a while
-		defer app.RoutinesWG.Done()
-		l.Debug().Msg("Starting sunrise/sunset refresh go routine")
-		ticker := time.NewTicker(6 * time.Hour)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-sunriseSunsetDone:
-				l.Debug().Msg("Stopping sunrise/sunset refresh go routine")
-				return
-			case <-ticker.C:
-				globals.Coords.GetSunriseSunset(true)
-			}
-		}
-	}()
+
+	core.Coords().Start()
 
 	return nil
 }
 
 func initHTTPServer(config *config.Gotomation) {
-	l := logging.NewLogger("initHTTPServer")
+	//l := logging.NewLogger("initHTTPServer")
 
-	b, err := ioutil.ReadFile(config.Google.CredentialsFile)
-	if err != nil {
-		l.Error().Err(err).Msgf("Unable to load Google credentials file %s", config.Google.CredentialsFile)
-		return
-	}
-
-	googleConfig, _ := google.ConfigFromJSON(b, calendar.CalendarReadonlyScope)
-	newHTTPService, err := httpservice.NewHTTPService(googleConfig)
-	if err != nil {
-		l.Error().Err(err).Msg("Unable to start HTTP server")
-		return
-	}
-
-	newHTTPService.BindAddr = "127.0.0.1"
-	if httpServer != nil {
-		httpServer.Stop() // stop and GC previously allocated server resources
-	}
-	httpServer = newHTTPService
-	httpServer.Start()
-
-	// Trying to get token from cache file
-	err = httpServer.GoogleConfig.LoadTokenFromCache()
-	if err != nil { // need to load from web
-		authURL := httpServer.GoogleConfig.Config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-		l.Warn().Str("url", authURL).Msg("Link to use to get an auth code for using the Google's API. Use HTTP endpoint /google-validate?auth_code=<mycode> to create a reusable token")
-	}
-
-	l.Info().Msg("Loading Google token for API access from cache file ok")
+	httpservice.InitHTTPServer("127.0.0.1", httpservice.DefaultHTTPPort)
+	httpservice.HTTPServer().Start()
 }
 
 // StopHTTPServer stops the HTTP server
 func StopHTTPServer() {
-	if httpServer != nil {
-		httpServer.Stop()
-	}
+	httpservice.HTTPServer().Stop()
 }
 
 // EventCallback is called when a listen event occurs
@@ -293,7 +257,7 @@ func EventCallback(msg model.HassAPIObject) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	if globals.Triggers == nil || len(globals.Triggers) == 0 {
+	if mTriggers == nil || len(mTriggers) == 0 {
 		return
 	}
 
@@ -304,7 +268,7 @@ func EventCallback(msg model.HassAPIObject) {
 		Msg("Event received by the callback func")
 
 	// Look for the entity
-	for _, t := range globals.Triggers {
+	for _, t := range mTriggers {
 		if !t.GetActionable().IsEnabled() {
 			continue
 		}

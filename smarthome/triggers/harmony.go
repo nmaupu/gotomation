@@ -8,7 +8,6 @@ import (
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
-	"github.com/nmaupu/gotomation/smarthome/globals"
 )
 
 var (
@@ -16,8 +15,8 @@ var (
 )
 
 const (
-	offsetDawn = 30 * time.Minute
-	offsetDusk = -30 * time.Minute
+	offsetDawn = 15 * time.Minute
+	offsetDusk = -15 * time.Minute
 )
 
 // Harmony checks for harmony remote button press and takes action accordingly
@@ -70,7 +69,7 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 		return
 	}
 
-	if !wa.OnlyDark || (wa.OnlyDark && globals.Coords.IsDarkNow(offsetDawn, offsetDusk)) {
+	if !wa.OnlyDark || (wa.OnlyDark && core.Coords().IsDarkNow(offsetDawn, offsetDusk)) {
 		for _, cmd := range wa.Commands {
 			cmdLogger := l.With().
 				Str("cmd_entity", cmd.Entity.GetEntityIDFullName()).

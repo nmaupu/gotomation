@@ -5,13 +5,14 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/mitchellh/go-homedir"
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/httpservice/controllers"
 	"github.com/nmaupu/gotomation/logging"
-	"github.com/pkg/errors"
 	"golang.org/x/net/context"
-	"golang.org/x/oauth2"
+)
+
+var (
+	httpServer httpService
 )
 
 const (
@@ -20,36 +21,38 @@ const (
 )
 
 // HTTPService is Gotomation's HTTP server
-type HTTPService struct {
-	GoogleConfig *controllers.GoogleConfig
-	BindAddr     string
-	Port         int
-	server       *http.Server
+type HTTPService interface {
+	Start()
+	Stop()
 }
 
-// NewHTTPService returns a pointer to a new HTTPService object
-func NewHTTPService(config *oauth2.Config) (*HTTPService, error) {
-	errMsg := "Unable to get home directory to store Google's token"
-	hdir, err := homedir.Dir()
-	if err != nil {
-		return nil, errors.Wrap(err, errMsg)
-	}
-	expHomedir, err := homedir.Expand(hdir)
-	if err != nil {
-		return nil, errors.Wrap(err, errMsg)
-	}
-	tokenFilePath := fmt.Sprintf("%s/.gotomation-google-token.json", expHomedir)
+type httpService struct {
+	BindAddr string
+	Port     int
+	server   *http.Server
+}
 
-	return &HTTPService{
-		GoogleConfig: &controllers.GoogleConfig{Config: config, TokenFilePath: tokenFilePath},
-		BindAddr:     "0.0.0.0",
-		Port:         DefaultHTTPPort,
-	}, nil
+// HTTPServer returns the HTTP server singleton
+func HTTPServer() HTTPService {
+	return &httpServer
+}
+
+// InitHTTPServer inits HTTP server singleton
+func InitHTTPServer(bindAddr string, port int) {
+	httpServer = httpService{
+		BindAddr: bindAddr,
+		Port:     port,
+	}
 }
 
 // Start starts the HTTP service
-func (s HTTPService) Start() {
+func (s *httpService) Start() {
 	l := logging.NewLogger("HTTPService.Start")
+	if s.Port == 0 {
+		l.Warn().Msgf("No port defined for HTTP server, using %d", DefaultHTTPPort)
+		s.Port = DefaultHTTPPort
+	}
+
 	l.Info().Msg("Starting HTTP server")
 	gin.SetMode(gin.ReleaseMode)
 
@@ -57,7 +60,7 @@ func (s HTTPService) Start() {
 	router.Use(gin.Recovery())
 
 	router.GET("/health", controllers.HealthHandler)
-	router.GET("/google-validate", s.GoogleConfig.GoogleWebTokenHandler)
+	router.GET("/google-validate", controllers.GoogleWebTokenHandler)
 
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.BindAddr, s.Port),
@@ -65,16 +68,21 @@ func (s HTTPService) Start() {
 	}
 
 	app.RoutinesWG.Add(1)
-	go s.server.ListenAndServe()
+	go func() {
+		defer app.RoutinesWG.Done()
+		s.server.ListenAndServe()
+	}()
 }
 
 // Stop stops the HTTP service and free resources
-func (s HTTPService) Stop() {
+func (s *httpService) Stop() {
 	l := logging.NewLogger("HTTPService.Stop")
-	l.Info().Msg("Stopping HTTP server")
-	if s.server != nil {
-		s.server.Shutdown(context.TODO())
+	if s.server == nil {
+		l.Warn().Msg("HTTP server is not initialized")
+		return
 	}
 
-	app.RoutinesWG.Done()
+	l.Info().Msg("Stopping HTTP server")
+	s.server.Shutdown(context.TODO())
+
 }
