@@ -1,6 +1,7 @@
 package smarthome
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/nmaupu/gotomation/app"
@@ -131,10 +132,12 @@ func initCheckers(config *config.Gotomation) {
 			switch moduleName {
 			case "internetChecker":
 				module = new(checkers.Internet)
+			case "calendarChecker":
+				module = new(checkers.Calendar)
 			default:
-				l.Warn().
+				l.Error().Err(fmt.Errorf("Cannot find module")).
 					Str("module", moduleName).
-					Msg("Module not found")
+					Send()
 				continue
 			}
 
