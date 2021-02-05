@@ -34,12 +34,21 @@ func (c *Checker) Start() error {
 		ticker := time.NewTicker(c.Module.GetInterval())
 		defer ticker.Stop()
 
+		// Ensure executing module's check right away before first tick
+		// https://github.com/golang/go/issues/17601
+		if c.Module.IsEnabled() {
+			select {
+			case <-c.stop:
+				return
+			default:
+				c.Module.Check()
+			}
+		}
+
 		for c.Module.IsEnabled() {
 			select {
-			case s := <-c.stop:
-				if s {
-					return
-				}
+			case <-c.stop:
+				return
 			case <-ticker.C:
 				c.Module.Check()
 			}
