@@ -55,7 +55,7 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 			EmbedObject(event).
 			Msg("Event received")
 
-		switchState, err := httpclient.SimpleClientSingleton.GetEntity(t.SwitchEntity.Domain, t.SwitchEntity.EntityID)
+		switchState, err := httpclient.GetSimpleClient().GetEntity(t.SwitchEntity.Domain, t.SwitchEntity.EntityID)
 		if err != nil {
 			l.Error().Err(err).
 				Str("device", t.SwitchEntity.GetEntityIDFullName()).
@@ -81,7 +81,7 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 					Float64("threshold_min", t.ThresholdMin).
 					Float64("threshold_max", t.ThresholdMax).
 					Msg("current >= threshold_max, switching on")
-				httpclient.SimpleClientSingleton.CallService(t.SwitchEntity, "turn_on", map[string]string{})
+				httpclient.GetSimpleClient().CallService(t.SwitchEntity, "turn_on", map[string]string{})
 			} else {
 				l.Debug().
 					Float64("current", currentHum).
@@ -97,7 +97,7 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 					Float64("threshold_min", t.ThresholdMin).
 					Float64("threshold_max", t.ThresholdMax).
 					Msg("current <= threshold_min, switching off")
-				httpclient.SimpleClientSingleton.CallService(t.SwitchEntity, "turn_off", map[string]string{})
+				httpclient.GetSimpleClient().CallService(t.SwitchEntity, "turn_off", map[string]string{})
 			} else {
 				l.Debug().
 					Float64("current", currentHum).

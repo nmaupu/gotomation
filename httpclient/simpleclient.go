@@ -14,20 +14,27 @@ import (
 )
 
 // SimpleClient is a client to make standard HTTP requests
-type SimpleClient struct {
+type SimpleClient interface {
+	GetEntities(domain string, name string) ([]model.HassEntity, error)
+	GetEntity(domain string, name string) (*model.HassEntity, error)
+	CheckServerAPIHealth() bool
+	CallService(entity model.HassEntity, service string, extraParams map[string]string) error
+}
+
+type simpleClient struct {
 	model.HassConfig
 }
 
 // NewSimpleClient returns a new SimpleClient object
-func NewSimpleClient(hassConfig model.HassConfig) *SimpleClient {
-	return &SimpleClient{
+func NewSimpleClient(hassConfig model.HassConfig) SimpleClient {
+	return &simpleClient{
 		HassConfig: hassConfig,
 	}
 }
 
 // GetEntities returns entities matching criteria
 // Regexp patterns can be used
-func (c *SimpleClient) GetEntities(domain string, name string) ([]model.HassEntity, error) {
+func (c *simpleClient) GetEntities(domain string, name string) ([]model.HassEntity, error) {
 	l := logging.NewLogger("SimpleClient.GetEntities")
 
 	req, err := c.HassConfig.NewHTTPRequest(http.MethodGet, "states", nil)
@@ -87,7 +94,7 @@ func (c *SimpleClient) GetEntities(domain string, name string) ([]model.HassEnti
 
 // GetEntity retrieves one entity given its domain and its name
 // Regexp patterns can be used
-func (c *SimpleClient) GetEntity(domain string, name string) (*model.HassEntity, error) {
+func (c *simpleClient) GetEntity(domain string, name string) (*model.HassEntity, error) {
 	entities, err := c.GetEntities(domain, name)
 	if err != nil {
 		return nil, err
@@ -105,7 +112,7 @@ func (c *SimpleClient) GetEntity(domain string, name string) (*model.HassEntity,
 }
 
 // CheckServerAPIHealth verifies that the server is started and ready to serve requests (and that database is loaded)
-func (c *SimpleClient) CheckServerAPIHealth() bool {
+func (c *simpleClient) CheckServerAPIHealth() bool {
 	// We suppose that if on of those entities are found, server is ready 🤷‍♂️
 	_, err1 := c.GetEntity("light", "escalier_switch")
 	_, err2 := c.GetEntity("light", "poutre_dimmer")
@@ -113,7 +120,7 @@ func (c *SimpleClient) CheckServerAPIHealth() bool {
 }
 
 // CallService calls a service
-func (c *SimpleClient) CallService(entity model.HassEntity, service string, extraParams map[string]string) error {
+func (c *simpleClient) CallService(entity model.HassEntity, service string, extraParams map[string]string) error {
 	req, err := c.HassConfig.NewHTTPRequest(http.MethodPost, fmt.Sprintf("services/%s/%s", entity.Domain, service), nil)
 	if err != nil {
 		return err

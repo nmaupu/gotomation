@@ -2,6 +2,7 @@ package core
 
 import (
 	"errors"
+	"reflect"
 	"time"
 
 	"github.com/nmaupu/gotomation/logging"
@@ -31,4 +32,9 @@ func (m Module) GetInterval() time.Duration {
 // IsEnabled godoc
 func (m Module) IsEnabled() bool {
 	return m.Enabled
+}
+
+// GetName return the name of the module
+func (m Module) GetName() string {
+	return reflect.TypeOf(m).Name()
 }

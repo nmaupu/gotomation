@@ -9,9 +9,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/nmaupu/gotomation/app"
-	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
-	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/smarthome"
 	flag "github.com/spf13/pflag"
@@ -81,15 +79,7 @@ func configChange(vi *viper.Viper, config config.Gotomation, loadFunc func(confi
 }
 
 func loadConfig(config config.Gotomation) {
-	httpclient.Init(config.HomeAssistant.Host, config.HomeAssistant.Token)
 	smarthome.Init(config)
-
-	// Adding callbacks for server communication, start and subscribe to events
-	httpclient.WebSocketClientSingleton.RegisterCallback("event", smarthome.EventCallback, model.HassEvent{})
-	httpclient.WebSocketClientSingleton.Start()
-	for _, sub := range config.HomeAssistant.SubscribeEvents {
-		httpclient.WebSocketClientSingleton.SubscribeEvents(sub)
-	}
 }
 
 func handleFlags() gotomationFlags {

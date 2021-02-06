@@ -9,6 +9,7 @@ import (
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/routines"
 	"github.com/pkg/errors"
 )
 
@@ -19,12 +20,11 @@ var (
 
 // Coordinates represents GPS coordinates using latitude and longitude
 type Coordinates interface {
+	routines.Runnable
 	GetSunriseSunset() (time.Time, time.Time, error)
 	IsDarkNow(offsetDawn, offsetDusk time.Duration) bool
 	GetLatitude() float64
 	GetLongitude() float64
-	Stop()
-	Start()
 }
 
 // Coordinates represents GPS coordinates using latitude and longitude
@@ -46,7 +46,7 @@ func InitCoordinates(zoneName string) error {
 	var err error
 	once.Do(
 		func() {
-			entity, err := httpclient.SimpleClientSingleton.GetEntity("zone", zoneName)
+			entity, err := httpclient.GetSimpleClient().GetEntity("zone", zoneName)
 			if err != nil {
 				err = errors.Wrapf(err, "Unable to get latitude and longitude, err=%v", err)
 			} else {
@@ -72,7 +72,7 @@ func (c *coordinates) Stop() {
 	c.sunriseSunsetDone <- true
 }
 
-func (c *coordinates) Start() {
+func (c *coordinates) Start() error {
 	l := logging.NewLogger("Coordinates.Start")
 
 	// first init before ticker ticks
@@ -91,13 +91,15 @@ func (c *coordinates) Start() {
 		for {
 			select {
 			case <-c.sunriseSunsetDone:
-				l.Debug().Msg("Stopping sunrise/sunset refresh go routine")
+				l.Trace().Msg("Exiting sunrise/sunset refresh go routine")
 				return
 			case <-ticker.C:
 				c.getSunriseSunset(true)
 			}
 		}
 	}()
+
+	return nil
 }
 
 func (c *coordinates) GetLatitude() float64 {
@@ -165,4 +167,9 @@ func (c *coordinates) IsDarkNow(offsetDawn, offsetDusk time.Duration) bool {
 	sunrise = sunrise.Add(offsetDawn)
 	sunset = sunset.Add(offsetDusk)
 	return now.Before(sunrise) || now.After(sunset)
+}
+
+// GetName returns the name of this runnable object
+func (c *coordinates) GetName() string {
+	return "Coordinates"
 }

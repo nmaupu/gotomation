@@ -16,6 +16,7 @@ import (
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
+	"github.com/nmaupu/gotomation/routines"
 )
 
 const (
@@ -35,12 +36,19 @@ type callback struct {
 }
 
 // WebSocketClient manages a WebSocket connection to hass
-type WebSocketClient struct {
+type WebSocketClient interface {
+	routines.Runnable
+	RegisterCallback(hassType string, f ResponseHandlerSignature, concreteType model.HassAPIObject)
+	SubscribeEvents(eventTypes ...string)
+}
+
+type webSocketClient struct {
 	model.HassConfig
-	mutexConn        sync.Mutex
-	conn             net.Conn
-	callbacks        map[string]callback
-	EventsSubscribed map[uint64]model.HassEventSubscription
+	mutexConn             sync.Mutex
+	conn                  net.Conn
+	callbacks             map[string]callback
+	mutexEventsSubscribed sync.Mutex
+	EventsSubscribed      map[uint64]model.HassEventSubscription
 	// id to use for the next request
 	id uint64
 
@@ -57,8 +65,8 @@ type WebSocketClient struct {
 }
 
 // NewWebSocketClient returns a new NewWebSocketClient initialized
-func NewWebSocketClient(config model.HassConfig) *WebSocketClient {
-	return &WebSocketClient{
+func NewWebSocketClient(config model.HassConfig) WebSocketClient {
+	return &webSocketClient{
 		HassConfig:     config,
 		requestChannel: make(chan *WebSocketRequest, 10),
 		// important: setting size of chan bools to 1 to avoid being blocked until read when sending the stop message
@@ -68,7 +76,7 @@ func NewWebSocketClient(config model.HassConfig) *WebSocketClient {
 }
 
 // RegisterCallback registers a new callback given its type
-func (c *WebSocketClient) RegisterCallback(hassType string, f ResponseHandlerSignature, concreteType model.HassAPIObject) {
+func (c *webSocketClient) RegisterCallback(hassType string, f ResponseHandlerSignature, concreteType model.HassAPIObject) {
 	if c.callbacks == nil {
 		c.callbacks = make(map[string]callback, 0)
 	}
@@ -80,13 +88,13 @@ func (c *WebSocketClient) RegisterCallback(hassType string, f ResponseHandlerSig
 }
 
 // DeregisterCallback deregisters a callback given its type
-func (c *WebSocketClient) DeregisterCallback(hassType string) {
+func (c *webSocketClient) DeregisterCallback(hassType string) {
 	if c.callbacks != nil {
 		delete(c.callbacks, hassType)
 	}
 }
 
-func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
+func (c *webSocketClient) mustConnect(retryEvery time.Duration) {
 	l := logging.NewLogger("WebSocketClient.mustConnect")
 	var err error
 
@@ -101,12 +109,14 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 			Msg("Trying to connect")
 		c.mutexConn.Lock()
 		c.conn, _, _, err = ws.DefaultDialer.Dial(context.Background(), c.URL.String())
-		defer c.mutexConn.Unlock()
+		c.mutexConn.Unlock()
 		if err == nil {
 			l.Info().
 				Str("url", c.URL.String()).
 				Msg("Connection established")
 			// resubscribing to registered events
+			c.mutexEventsSubscribed.Lock()
+			defer c.mutexEventsSubscribed.Unlock()
 			for _, e := range c.EventsSubscribed {
 				c.EnqueueRequest(NewWebSocketRequest(e))
 			}
@@ -122,13 +132,13 @@ func (c *WebSocketClient) mustConnect(retryEvery time.Duration) {
 }
 
 // NextMessageID returns the next usable message ID
-func (c *WebSocketClient) NextMessageID() uint64 {
+func (c *webSocketClient) NextMessageID() uint64 {
 	atomic.AddUint64(&c.id, 1)
 	return c.id
 }
 
 // Stop stops the web socket connection and free resources
-func (c *WebSocketClient) Stop() {
+func (c *webSocketClient) Stop() {
 	c.workerRequestsHandlerStop <- true
 
 	// Cleaning conn and force workerDaemon to get out of the blocking reading func
@@ -140,7 +150,7 @@ func (c *WebSocketClient) Stop() {
 }
 
 // Start connects, authenticates and listens to Home Assistant WebSocket API
-func (c *WebSocketClient) Start() error {
+func (c *webSocketClient) Start() error {
 	c.mustConnect(2 * time.Second)
 
 	defer func() {
@@ -168,7 +178,7 @@ func (c *WebSocketClient) Start() error {
 	return nil
 }
 
-func (c *WebSocketClient) recoverDisconnection() {
+func (c *webSocketClient) recoverDisconnection() {
 	l := logging.NewLogger("WebSocketClient.recoverDisconnection")
 	if r := recover(); r != nil {
 		l.Debug().
@@ -179,7 +189,10 @@ func (c *WebSocketClient) recoverDisconnection() {
 }
 
 // SubscribeEvents subscribes to Home Assistant event bus
-func (c *WebSocketClient) SubscribeEvents(eventTypes ...string) {
+func (c *webSocketClient) SubscribeEvents(eventTypes ...string) {
+	c.mutexEventsSubscribed.Lock()
+	defer c.mutexEventsSubscribed.Unlock()
+
 	if c.EventsSubscribed == nil {
 		c.EventsSubscribed = make(map[uint64]model.HassEventSubscription, 0)
 	}
@@ -198,7 +211,7 @@ func (c *WebSocketClient) SubscribeEvents(eventTypes ...string) {
 
 // CallService is a generic function to call any service
 // Deprecated: Might not work, to be debugged
-func (c *WebSocketClient) CallService(entity model.HassEntity, service string) {
+func (c *webSocketClient) CallService(entity model.HassEntity, service string) {
 	l := logging.NewLogger("WebSocketClient.CallService")
 	d := model.HassService{
 		ID:      c.NextMessageID(),
@@ -217,12 +230,12 @@ func (c *WebSocketClient) CallService(entity model.HassEntity, service string) {
 }
 
 // EnqueueRequest queues a request to be sent to the server
-func (c *WebSocketClient) EnqueueRequest(request *WebSocketRequest) {
+func (c *webSocketClient) EnqueueRequest(request *WebSocketRequest) {
 	c.requestChannel <- request
 }
 
 // requeueRequest requeues a request after a while
-func (c *WebSocketClient) requeueRequest(req *WebSocketRequest, after time.Duration) {
+func (c *webSocketClient) requeueRequest(req *WebSocketRequest, after time.Duration) {
 	app.RoutinesWG.Add(1)
 	go func() {
 		defer app.RoutinesWG.Done()
@@ -232,8 +245,8 @@ func (c *WebSocketClient) requeueRequest(req *WebSocketRequest, after time.Durat
 	}()
 }
 
-// workerRequestsHandler handles request from channel and effectively sends them to the server
-func (c *WebSocketClient) workerRequestsHandler() {
+// workerRequestsHandler handles requests from channel and effectively sends them to the server
+func (c *webSocketClient) workerRequestsHandler() {
 	funcLogger := logging.NewLogger("WebSocketClient.workerRequestsHandler")
 
 	running := true
@@ -241,7 +254,7 @@ func (c *WebSocketClient) workerRequestsHandler() {
 	for running {
 		select {
 		case <-c.workerRequestsHandlerStop:
-			funcLogger.Info().Msg("Stopping workerRequestsHandler routine")
+			funcLogger.Trace().Msg("Stopping workerRequestsHandler routine")
 			running = false
 		case request := <-c.requestChannel:
 			// Creating logger for this request
@@ -257,7 +270,7 @@ func (c *WebSocketClient) workerRequestsHandler() {
 				continue
 			}
 
-			if c.authenticated && !SimpleClientSingleton.CheckServerAPIHealth() {
+			if c.authenticated && !GetSimpleClient().CheckServerAPIHealth() {
 				l.Warn().Msg("Server is unavailable, requeuing")
 				c.requeueRequest(request, 2*time.Second)
 				continue
@@ -284,10 +297,10 @@ func (c *WebSocketClient) workerRequestsHandler() {
 		}
 	} // for running
 
-	funcLogger.Info().Msg("workerRequestsHandler stopped")
+	funcLogger.Trace().Msg("workerRequestsHandler stopped")
 }
 
-func (c *WebSocketClient) workerDaemon() {
+func (c *webSocketClient) workerDaemon() {
 	l := logging.NewLogger("WebSocketClient.workerDaemon")
 
 	defer c.recoverDisconnection() // calling that when wsutil.ReadServerData panics
@@ -295,7 +308,7 @@ func (c *WebSocketClient) workerDaemon() {
 	for running {
 		select {
 		case <-c.workerDaemonStop:
-			l.Info().Msg("Stopping workerDaemon routine")
+			l.Trace().Msg("Stopping workerDaemon routine")
 			running = false
 			continue
 		default: // Avoid vscode complaining about unreachable code below
@@ -361,15 +374,15 @@ func (c *WebSocketClient) workerDaemon() {
 		}
 	}
 
-	l.Info().Msg("workerDaemon stopped")
+	l.Trace().Msg("workerDaemon stopped")
 }
 
 // Authenticated returns true if already authenticated, false otherwise
-func (c *WebSocketClient) Authenticated() bool {
+func (c *webSocketClient) Authenticated() bool {
 	return c.authenticated
 }
 
-func (c *WebSocketClient) closeConn() {
+func (c *webSocketClient) closeConn() {
 	c.mutexConn.Lock()
 	defer c.mutexConn.Unlock()
 	if c.conn != nil {
@@ -379,7 +392,7 @@ func (c *WebSocketClient) closeConn() {
 }
 
 // handleResult handles result to a previously sent request and update request object accordingly
-func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
+func (c *webSocketClient) handleResult(data model.HassAPIObject) {
 	l := logging.NewLogger("WebSocketClient.handleResult")
 
 	result := data.(*model.HassResult)
@@ -397,7 +410,7 @@ func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 			req.Data = req.Data.Duplicate(c.NextMessageID())
 		}
 
-		l.Warn().
+		l.Debug().
 			Uint64("id", result.GetID()).
 			Str("error_code", result.Error.Code).
 			Str("error_message", result.Error.Message).
@@ -407,7 +420,7 @@ func (c *WebSocketClient) handleResult(data model.HassAPIObject) {
 	}
 }
 
-func (c *WebSocketClient) handleAuthRequired(data model.HassAPIObject) {
+func (c *webSocketClient) handleAuthRequired(data model.HassAPIObject) {
 	l := logging.NewLogger("WebSocketClient.handleAuthRequired")
 	l.Info().
 		Str("type", data.GetType()).
@@ -415,7 +428,7 @@ func (c *WebSocketClient) handleAuthRequired(data model.HassAPIObject) {
 	c.EnqueueRequest(NewWebSocketRequest(model.NewHassAuthentication(c.HassConfig.Token)))
 }
 
-func (c *WebSocketClient) handleAuthOK(data model.HassAPIObject) {
+func (c *webSocketClient) handleAuthOK(data model.HassAPIObject) {
 	l := logging.NewLogger("WebSocketClient.handleAuthOK")
 	l.Info().
 		Str("type", data.GetType()).
@@ -423,7 +436,7 @@ func (c *WebSocketClient) handleAuthOK(data model.HassAPIObject) {
 	c.authenticated = true
 }
 
-func (c *WebSocketClient) handleAuthInvalid(data model.HassAPIObject) {
+func (c *webSocketClient) handleAuthInvalid(data model.HassAPIObject) {
 	l := logging.NewLogger("WebSocketClient.handleAuthInvalid")
 	result := data.(*model.HassResult)
 	l.Error().
@@ -432,4 +445,9 @@ func (c *WebSocketClient) handleAuthInvalid(data model.HassAPIObject) {
 		Msgf("Message received from server, cannot continue")
 	c.authenticated = false
 	c.Stop()
+}
+
+// GetName returns the name of this runnable object
+func (c *webSocketClient) GetName() string {
+	return "WebSocketClient"
 }

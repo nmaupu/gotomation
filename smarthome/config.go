@@ -11,10 +11,10 @@ import (
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
+	"github.com/nmaupu/gotomation/routines"
 	"github.com/nmaupu/gotomation/smarthome/checkers"
 	"github.com/nmaupu/gotomation/smarthome/triggers"
 	"github.com/nmaupu/gotomation/thirdparty"
-	"github.com/robfig/cron"
 	"google.golang.org/api/calendar/v3"
 )
 
@@ -23,8 +23,8 @@ var (
 	mutex      sync.Mutex
 	mCheckers  map[string]core.Checkable
 	mTriggers  map[string]core.Triggerable
-	crontab    *cron.Cron
-	httpServer *httpservice.HTTPService
+	crontab    core.Crontab
+	httpServer httpservice.HTTPService
 )
 
 // Init inits modules from configuration
@@ -33,10 +33,13 @@ func Init(config config.Gotomation) {
 	mutex.Lock()
 	defer mutex.Unlock()
 
+	routines.ResetRunnablesList()
+	initHTTPClients(&config)
+
 	if err := initZone(&config); err != nil {
 		l.Error().Err(err).
 			Str("zone_name", config.HomeAssistant.HomeZoneName).
-			Msg("Unable to get coordinate from zone name")
+			Msg("Unable to get coordinates from zone name")
 		return
 	}
 
@@ -45,25 +48,32 @@ func Init(config config.Gotomation) {
 	initCheckers(&config)
 	initCrons(&config)
 	initHTTPServer(&config)
+	routines.StartAllRunnables()
 }
 
-// StopAndWait stops and free all allocated smarthome object
+// StopAndWait stops and free all allocated smarthome objects
 func StopAndWait() {
 	l := logging.NewLogger("Stop")
 
-	l.Info().Msg("Stopping service")
-	StopSunriseSunset()
-	StopAllCheckers()
-	StopCron()
-
-	if httpclient.WebSocketClientSingleton != nil {
-		httpclient.WebSocketClientSingleton.Stop()
-	}
-
-	StopHTTPServer()
+	l.Info().Msg("Stopping services")
+	routines.StopAllRunnables()
 
 	app.RoutinesWG.Wait()
+	routines.ResetRunnablesList()
 	l.Debug().Msg("All go routines terminated")
+}
+
+func initHTTPClients(config *config.Gotomation) {
+	httpclient.InitSimpleClient(config.HomeAssistant.Host, config.HomeAssistant.Token)
+
+	httpclient.InitWebSocketClient(config.HomeAssistant.Host, config.HomeAssistant.Token)
+	routines.AddRunnable(httpclient.GetWebSocketClient())
+
+	// Adding callbacks for server communication, start and subscribe to events
+	httpclient.GetWebSocketClient().RegisterCallback("event", EventCallback, model.HassEvent{})
+	for _, sub := range config.HomeAssistant.SubscribeEvents {
+		httpclient.GetWebSocketClient().SubscribeEvents(sub)
+	}
 }
 
 func initGoogle(config *config.Gotomation) {
@@ -154,35 +164,7 @@ func initCheckers(config *config.Gotomation) {
 				Msg("Initializing checker")
 
 			mCheckers[moduleName] = checker
-		}
-	}
-
-	StartAllCheckers()
-}
-
-// StopAllCheckers stops all checkers
-func StopAllCheckers() {
-	l := logging.NewLogger("StopAllCheckers")
-	for name, checker := range mCheckers {
-		l.Info().
-			Str("checker_name", name).
-			Msg("Stopping checker")
-		checker.Stop()
-	}
-}
-
-// StartAllCheckers stops all checkers
-func StartAllCheckers() {
-	l := logging.NewLogger("StartAllCheckers")
-	for name, checker := range mCheckers {
-		l.Info().
-			Str("checker_name", name).
-			Msg("Starting checker")
-		err := checker.Start()
-		if err != nil {
-			l.Error().Err(err).
-				Str("checker_name", name).
-				Msg("Unable to start checker")
+			routines.AddRunnable(checker)
 		}
 	}
 }
@@ -193,7 +175,8 @@ func initCrons(config *config.Gotomation) {
 		crontab.Stop()
 	}
 
-	crontab := cron.New()
+	crontab := core.NewCrontab()
+	routines.AddRunnable(crontab)
 
 	l.Info().Msg("Initializing all crons")
 	for _, cronConfig := range config.Crons {
@@ -205,20 +188,6 @@ func initCrons(config *config.Gotomation) {
 
 		crontab.AddFunc(ce.Expr, ce.GetActionFunc())
 	}
-
-	crontab.Start()
-}
-
-// StopCron stops cron and free associated resources
-func StopCron() {
-	if crontab != nil {
-		crontab.Stop()
-	}
-}
-
-// StopSunriseSunset stops the sunrise/sunset refresh goroutine
-func StopSunriseSunset() {
-	core.Coords().Stop()
 }
 
 func initZone(config *config.Gotomation) error {
@@ -229,15 +198,12 @@ func initZone(config *config.Gotomation) error {
 	if err != nil {
 		return err
 	}
+	routines.AddRunnable(core.Coords())
 
 	l.Debug().
 		Float64("latitude", core.Coords().GetLatitude()).
 		Float64("longitude", core.Coords().GetLongitude()).
 		Msg("GPS coordinates retrieved")
-
-	l.Debug().Msg("Preloading sunrise and sunset dates (long to calculate on PI)")
-
-	core.Coords().Start()
 
 	return nil
 }
@@ -246,12 +212,7 @@ func initHTTPServer(config *config.Gotomation) {
 	//l := logging.NewLogger("initHTTPServer")
 
 	httpservice.InitHTTPServer("127.0.0.1", httpservice.DefaultHTTPPort)
-	httpservice.HTTPServer().Start()
-}
-
-// StopHTTPServer stops the HTTP server
-func StopHTTPServer() {
-	httpservice.HTTPServer().Stop()
+	routines.AddRunnable(httpservice.HTTPServer())
 }
 
 // EventCallback is called when a listen event occurs

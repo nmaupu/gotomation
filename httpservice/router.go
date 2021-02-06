@@ -8,6 +8,7 @@ import (
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/httpservice/controllers"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/routines"
 	"golang.org/x/net/context"
 )
 
@@ -22,8 +23,7 @@ const (
 
 // HTTPService is Gotomation's HTTP server
 type HTTPService interface {
-	Start()
-	Stop()
+	routines.Runnable
 }
 
 type httpService struct {
@@ -46,7 +46,7 @@ func InitHTTPServer(bindAddr string, port int) {
 }
 
 // Start starts the HTTP service
-func (s *httpService) Start() {
+func (s *httpService) Start() error {
 	l := logging.NewLogger("HTTPService.Start")
 	if s.Port == 0 {
 		l.Warn().Msgf("No port defined for HTTP server, using %d", DefaultHTTPPort)
@@ -72,6 +72,8 @@ func (s *httpService) Start() {
 		defer app.RoutinesWG.Done()
 		s.server.ListenAndServe()
 	}()
+
+	return nil
 }
 
 // Stop stops the HTTP service and free resources
@@ -82,7 +84,12 @@ func (s *httpService) Stop() {
 		return
 	}
 
-	l.Info().Msg("Stopping HTTP server")
+	l.Trace().Msg("Stopping HTTP server")
 	s.server.Shutdown(context.TODO())
 
+}
+
+// GetName returns the name of this runnable object
+func (s *httpService) GetName() string {
+	return "HTTPService"
 }
