@@ -104,6 +104,8 @@ func initTriggers(config *config.Gotomation) {
 				action = new(triggers.Dehumidifier)
 			case "harmony":
 				action = new(triggers.Harmony)
+			case "calendarLights":
+				action = new(triggers.CalendarLights)
 			default:
 				l.Warn().
 					Str("trigger", triggerName).
@@ -238,7 +240,7 @@ func EventCallback(msg model.HassAPIObject) {
 		}
 
 		// Checking event types if defined
-		toTriggerEvents := core.StringInSlice(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
+		toTriggerEvents := core.StringInSliceP(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
 
 		eventEntity := model.NewHassEntity(event.Event.Data.EntityID)
 		toTriggerEntities := eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger())

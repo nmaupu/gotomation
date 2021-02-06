@@ -3,10 +3,12 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
 
@@ -39,12 +41,12 @@ func MapstructureDecodeHook(from, to reflect.Type, data interface{}) (interface{
 		result = time.Date(now.Year(), now.Month(), now.Day(), hour, minute, second, 0, time.Local)
 	case reflect.TypeOf((*model.HassEntity)(nil)).Elem():
 		toks := strings.Split(data.(string), ".")
-		if len(toks) != 2 {
+		if len(toks) < 2 {
 			return nil, fmt.Errorf("Unable to parse entity %s", data.(string))
 		}
 		result = model.HassEntity{
 			Domain:   toks[0],
-			EntityID: toks[1],
+			EntityID: strings.Join(toks[1:], ""),
 		}
 	default:
 		return data, nil
@@ -53,10 +55,20 @@ func MapstructureDecodeHook(from, to reflect.Type, data interface{}) (interface{
 	return result, err
 }
 
-// StringInSlice checks whether a string is present in the given slice
-func StringInSlice(str string, s []string) bool {
-	for _, v := range s {
-		if v == str {
+// StringInSliceP checks whether a string is present in the given slice (using regexp patterns)
+func StringInSliceP(str string, patterns []string) bool {
+	l := logging.NewLogger("StringInSliceP")
+	for _, p := range patterns {
+
+		re, err := regexp.Compile(p)
+		if err != nil {
+			l.Error().Err(err).Str("pattern", p).Msg("Pattern is not correct")
+			continue
+		}
+
+		l.Trace().Str("candidate", str).Str("pattern", p).Bool("result", re.MatchString(str)).Msg("Checking pattern")
+
+		if re.MatchString(str) {
 			return true
 		}
 	}

@@ -2,7 +2,10 @@ package model
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+
+	"github.com/nmaupu/gotomation/logging"
 )
 
 // HassEntity represents a Home Assistant entity
@@ -37,14 +40,33 @@ func NewHassEntity(entityID string) HassEntity {
 }
 
 // Equals returns true if both entities are equals (same domain and entity_id), false otherwise
+// regexp are supported for entity_id
 func (e HassEntity) Equals(entity HassEntity) bool {
-	return e.Domain == entity.Domain && e.EntityID == entity.EntityID
+	l := logging.NewLogger("HassEntity.Equals")
+
+	if e.Domain != entity.Domain {
+		return false
+	}
+
+	re, err := regexp.Compile(entity.EntityID)
+	if err != nil {
+		return false
+	}
+
+	res := re.MatchString(e.EntityID)
+	l.Trace().
+		Str("entity", e.GetEntityIDFullName()).
+		Str("candidate", fmt.Sprintf(entity.GetEntityIDFullName())).
+		Bool("response", res).
+		Send()
+
+	return res
 }
 
 // IsContained returns true if e is in entities, false otherwise
 func (e HassEntity) IsContained(entities []HassEntity) bool {
 	for _, entity := range entities {
-		if entity.Equals(e) {
+		if e.Equals(entity) {
 			return true
 		}
 	}
