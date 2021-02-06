@@ -84,7 +84,7 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 				if cmd.Brightness > 0 {
 					extra["brightness"] = strconv.FormatInt(int64(cmd.Brightness), 10)
 				}
-				err := httpclient.SimpleClientSingleton.CallService(cmd.Entity, cmd.Service, extra)
+				err := httpclient.GetSimpleClient().CallService(cmd.Entity, cmd.Service, extra)
 				if err != nil {
 					cmdLogger.Error().Err(err).Msg("An error occurred calling service")
 				}

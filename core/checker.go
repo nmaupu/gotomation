@@ -88,3 +88,8 @@ func (c *Checker) Configure(data interface{}, module interface{}) error {
 
 	return nil
 }
+
+// GetName returns the name of this runnable object
+func (c *Checker) GetName() string {
+	return fmt.Sprintf("Checker/%s", c.Module.GetName())
+}

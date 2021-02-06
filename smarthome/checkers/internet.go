@@ -3,6 +3,7 @@ package checkers
 import (
 	"errors"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/go-ping/ping"
@@ -31,6 +32,11 @@ type Internet struct {
 	RestartEntity model.HassEntity `mapstructure:"restart_entity"`
 	// lastReboot stores the last reboot time
 	lastReboot time.Time
+}
+
+// GetName godoc
+func (c Internet) GetName() string {
+	return reflect.TypeOf(c).Name()
 }
 
 // Check runs a single check
@@ -66,9 +72,9 @@ func (c *Internet) Check() {
 		l.Error().Err(errors.New("Connection failed")).
 			Msg("100% packet lost, rebooting router")
 		// Rebooting
-		httpclient.SimpleClientSingleton.CallService(c.RestartEntity, "turn_off", map[string]string{})
+		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_off", map[string]string{})
 		time.Sleep(1 * time.Second)
-		httpclient.SimpleClientSingleton.CallService(c.RestartEntity, "turn_on", map[string]string{})
+		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_on", map[string]string{})
 		c.lastReboot = time.Now()
 	} else if !isTimeBetweenRebootOK {
 		l.Warn().

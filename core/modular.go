@@ -7,4 +7,5 @@ type Modular interface {
 	Check()
 	GetInterval() time.Duration
 	IsEnabled() bool
+	GetName() string
 }

@@ -1,6 +1,7 @@
 package checkers
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/nmaupu/gotomation/core"
@@ -20,6 +21,11 @@ type Calendar struct {
 		Name string `mapstructure:"name"`
 		ID   string `mapstructure:"id"`
 	} `mapstructure:"cals"`
+}
+
+// GetName godoc
+func (c Calendar) GetName() string {
+	return reflect.TypeOf(c).Name()
 }
 
 // Check runs a single check
