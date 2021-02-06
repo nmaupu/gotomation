@@ -30,7 +30,7 @@ func (c Calendar) GetName() string {
 
 // Check runs a single check
 func (c *Calendar) Check() {
-	l := logging.NewLogger("Calendar.Check")
+	l := logging.NewLogger("CalendarLights.Trigger")
 
 	client, err := thirdparty.GetGoogleConfig().GetClient()
 	if err != nil {
@@ -44,7 +44,6 @@ func (c *Calendar) Check() {
 	}
 
 	now := time.Now().Local().Format(time.RFC3339)
-
 	for _, cal := range c.Cals {
 		events, err := srv.Events.List(cal.ID).
 			ShowDeleted(false).
@@ -69,6 +68,7 @@ func (c *Calendar) Check() {
 
 			l.Debug().Str("cal_name", cal.Name).
 				Str("summary", item.Summary).
+				Str("content", item.Description).
 				Str("date_beg", dateStart).
 				Str("date_end", dateEnd).
 				Msg("Calendar event")
