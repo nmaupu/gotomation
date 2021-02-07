@@ -45,6 +45,10 @@ func InitGoogleConfig(credsFilePath string, scopes ...string) error {
 	l := logging.NewLogger("InitGoogleConfig")
 	var err error
 
+	if credsFilePath == "" {
+		return fmt.Errorf("Google credentials file is not set, nothing to do")
+	}
+
 	once.Do(func() {
 		l.Info().Msg("Initializing Google creds config")
 		hdir, err := homedir.Dir()
