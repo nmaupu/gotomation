@@ -79,7 +79,7 @@ func (c *CronEntry) Configure(config interface{}, i interface{}) error {
 func (c *CronEntry) GetActionFunc() func() {
 	return func() {
 		for _, entity := range c.Entities {
-			httpclient.GetSimpleClient().CallService(entity, c.Action, map[string]string{})
+			httpclient.GetSimpleClient().CallService(entity, c.Action, nil)
 		}
 	}
 }

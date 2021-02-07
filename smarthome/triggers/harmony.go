@@ -1,7 +1,6 @@
 package triggers
 
 import (
-	"strconv"
 	"time"
 
 	"github.com/nmaupu/gotomation/core"
@@ -80,9 +79,9 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 
 			cmdLogger.Debug().Msg("Calling service")
 			if cmd.Entity.EntityID != "" && cmd.Entity.Domain != "" && cmd.Service != "" {
-				extra := make(map[string]string, 0)
+				extra := make(map[string]interface{}, 0)
 				if cmd.Brightness > 0 {
-					extra["brightness"] = strconv.FormatInt(int64(cmd.Brightness), 10)
+					extra["brightness"] = cmd.Brightness
 				}
 				err := httpclient.GetSimpleClient().CallService(cmd.Entity, cmd.Service, extra)
 				if err != nil {

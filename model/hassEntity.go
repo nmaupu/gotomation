@@ -6,6 +6,11 @@ import (
 	"strings"
 
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/rs/zerolog"
+)
+
+var (
+	_ zerolog.LogObjectMarshaler = (*HassEntity)(nil)
 )
 
 // HassEntity represents a Home Assistant entity
@@ -72,4 +77,12 @@ func (e HassEntity) IsContained(entities []HassEntity) bool {
 	}
 
 	return false
+}
+
+// MarshalZerologObject godoc
+func (e HassEntity) MarshalZerologObject(event *zerolog.Event) {
+	event.
+		Str("entity_id", e.EntityID).
+		Str("domain", e.Domain).
+		Str("state", e.State.State)
 }

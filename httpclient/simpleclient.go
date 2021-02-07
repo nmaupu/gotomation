@@ -7,18 +7,18 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
 
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
+	"github.com/pkg/errors"
 )
 
 // SimpleClient is a client to make standard HTTP requests
 type SimpleClient interface {
 	GetEntities(domain string, name string) ([]model.HassEntity, error)
-	GetEntity(domain string, name string) (*model.HassEntity, error)
+	GetEntity(domain string, name string) (model.HassEntity, error)
 	CheckServerAPIHealth() bool
-	CallService(entity model.HassEntity, service string, extraParams map[string]string) error
+	CallService(entity model.HassEntity, service string, extraParams map[string]interface{}) error
 }
 
 type simpleClient struct {
@@ -75,16 +75,17 @@ func (c *simpleClient) GetEntities(domain string, name string) ([]model.HassEnti
 	if name == "" {
 		patternName = `.*`
 	}
-	pattern := fmt.Sprintf("^%s\\.%s$", patternDomain, patternName)
+	pattern := fmt.Sprintf(`^%s\.%s$`, patternDomain, patternName)
 	l.Trace().Str("pattern", pattern).Msg("Checking entities with pattern")
 
-	re := regexp.MustCompile(pattern)
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return nil, errors.Wrap(err, fmt.Sprintf("Cannot compile regexp pattern %s", pattern))
+	}
 	for _, state := range states {
 		if re.Match([]byte(state.EntityID)) {
-			entity := model.HassEntity{}
-			entity.EntityID = state.EntityID
+			entity := model.NewHassEntity(state.EntityID)
 			entity.State = state
-			entity.Domain = strings.Split(state.EntityID, ".")[0]
 			entities = append(entities, entity)
 		}
 	}
@@ -94,21 +95,21 @@ func (c *simpleClient) GetEntities(domain string, name string) ([]model.HassEnti
 
 // GetEntity retrieves one entity given its domain and its name
 // Regexp patterns can be used
-func (c *simpleClient) GetEntity(domain string, name string) (*model.HassEntity, error) {
+func (c *simpleClient) GetEntity(domain string, name string) (model.HassEntity, error) {
 	entities, err := c.GetEntities(domain, name)
 	if err != nil {
-		return nil, err
+		return model.HassEntity{}, err
 	}
 
 	if len(entities) == 0 {
-		return nil, fmt.Errorf("Entity %s.%s not found", domain, name)
+		return model.HassEntity{}, fmt.Errorf("Entity %s.%s not found", domain, name)
 	}
 
 	if len(entities) > 1 {
-		return nil, fmt.Errorf("Too many entities (%d) found for %s.%s", len(entities), domain, name)
+		return model.HassEntity{}, fmt.Errorf("Too many entities (%d) found for %s.%s", len(entities), domain, name)
 	}
 
-	return &entities[0], nil
+	return entities[0], nil
 }
 
 // CheckServerAPIHealth verifies that the server is started and ready to serve requests (and that database is loaded)
@@ -120,17 +121,26 @@ func (c *simpleClient) CheckServerAPIHealth() bool {
 }
 
 // CallService calls a service
-func (c *simpleClient) CallService(entity model.HassEntity, service string, extraParams map[string]string) error {
+func (c *simpleClient) CallService(entity model.HassEntity, service string, extraParams map[string]interface{}) error {
+	l := logging.NewLogger("SimpleClient.CallService")
+	l.Debug().
+		Object("entity", entity).
+		Str("service", service).
+		Str("extra_params", fmt.Sprintf("%+v", extraParams)).
+		Msg("Calling service")
+
 	req, err := c.HassConfig.NewHTTPRequest(http.MethodPost, fmt.Sprintf("services/%s/%s", entity.Domain, service), nil)
 	if err != nil {
 		return err
 	}
 
-	params := map[string]string{
+	params := map[string]interface{}{
 		"entity_id": entity.GetEntityIDFullName(),
 	}
-	for k, v := range extraParams {
-		params[k] = v
+	if extraParams != nil {
+		for k, v := range extraParams {
+			params[k] = v
+		}
 	}
 
 	reqBody, err := json.Marshal(params)
