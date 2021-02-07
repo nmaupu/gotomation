@@ -129,7 +129,6 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	}()
 
 	// if set, returning saved values
-	// update every 24 hours
 	if !noCache && !c.sunrise.IsZero() && !c.sunset.IsZero() {
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
@@ -152,8 +151,8 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	}
 
 	c.mutex.Lock()
-	c.sunrise = sunrise
-	c.sunset = sunset
+	c.sunrise = time.Date(now.Year(), now.Month(), now.Day(), sunrise.Hour(), sunrise.Minute(), sunrise.Second(), sunrise.Nanosecond(), sunrise.Location())
+	c.sunset = time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), sunset.Nanosecond(), sunset.Location())
 	c.mutex.Unlock()
 
 	c.lastUpdate = now
@@ -162,7 +161,7 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 
 // IsDarkNow returns true if it's dark outside
 func (c *coordinates) IsDarkNow(offsetDawn, offsetDusk time.Duration) bool {
-	now := time.Now()
+	now := time.Now().Local()
 	sunrise, sunset, _ := c.GetSunriseSunset()
 	sunrise = sunrise.Add(offsetDawn)
 	sunset = sunset.Add(offsetDusk)
