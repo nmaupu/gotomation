@@ -51,6 +51,26 @@ func (e HassEvent) Duplicate(id uint64) HassAPIObject {
 	return dup
 }
 
+// SameState returns true if old state and new state matches
+func (e HassEvent) SameState() bool {
+	return e.Event.Data.OldState.State == e.Event.Data.NewState.State
+}
+
+// OppositeState returns true if old state is the opposite of new state
+// An empty state is considered 'off'
+func (e HassEvent) OppositeState() bool {
+	oldState := e.Event.Data.OldState.State
+	newState := e.Event.Data.NewState.State
+	if oldState == "" {
+		oldState = StateOFF
+	}
+	if newState == "" {
+		newState = StateOFF
+	}
+
+	return oldState != newState
+}
+
 // MarshalZerologObject godoc
 func (e HassEvent) MarshalZerologObject(event *zerolog.Event) {
 	event.

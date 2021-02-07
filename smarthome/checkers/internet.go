@@ -72,9 +72,9 @@ func (c *Internet) Check() {
 		l.Error().Err(errors.New("Connection failed")).
 			Msg("100% packet lost, rebooting router")
 		// Rebooting
-		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_off", map[string]string{})
+		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_off", nil)
 		time.Sleep(1 * time.Second)
-		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_on", map[string]string{})
+		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_on", nil)
 		c.lastReboot = time.Now()
 	} else if !isTimeBetweenRebootOK {
 		l.Warn().
