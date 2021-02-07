@@ -62,7 +62,7 @@ func (s *httpService) Start() error {
 	router.GET("/health", controllers.HealthHandler)
 	router.GET("/google-validate", controllers.GoogleWebTokenHandler)
 	router.GET("/coords", controllers.CoordsHandler)
-	router.GET("/sun", controllers.CoordsHandler)
+	router.GET("/sun", controllers.SunriseSunsetHandler)
 
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.BindAddr, s.Port),
