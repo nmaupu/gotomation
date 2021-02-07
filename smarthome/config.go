@@ -79,6 +79,10 @@ func initHTTPClients(config *config.Gotomation) {
 func initGoogle(config *config.Gotomation) {
 	l := logging.NewLogger("initGoogle")
 
+	if config.Google.CredentialsFile == "" {
+		return
+	}
+
 	err := thirdparty.InitGoogleConfig(config.Google.CredentialsFile, calendar.CalendarReadonlyScope)
 	if err != nil {
 		l.Error().Err(err).Msg("Unable to init Google creds")
