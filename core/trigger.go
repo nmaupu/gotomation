@@ -3,8 +3,8 @@ package core
 import (
 	"fmt"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/model/config"
 )
 
 var (
@@ -17,7 +17,7 @@ type Trigger struct {
 }
 
 // Configure godoc
-func (t *Trigger) Configure(config interface{}, action interface{}) error {
+func (t *Trigger) Configure(data interface{}, action interface{}) error {
 	l := logging.NewLogger("Trigger.Configure")
 
 	var ok bool
@@ -26,12 +26,7 @@ func (t *Trigger) Configure(config interface{}, action interface{}) error {
 		return fmt.Errorf("Cannot parse Actionable parameter")
 	}
 
-	mapstructureConfig := &mapstructure.DecoderConfig{
-		DecodeHook: MapstructureDecodeHook,
-		Result:     t.Action,
-	}
-	decoder, _ := mapstructure.NewDecoder(mapstructureConfig)
-	err := decoder.Decode(config)
+	err := config.NewMapStructureDecoder(t.Action).Decode(data)
 	if err != nil {
 		return err
 	}

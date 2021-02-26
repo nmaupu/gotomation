@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/model/config"
 )
 
 var (
@@ -73,12 +73,7 @@ func (c *Checker) Configure(data interface{}, module interface{}) error {
 		return fmt.Errorf("Cannot parse Modular parameter")
 	}
 
-	mapstructureConfig := &mapstructure.DecoderConfig{
-		DecodeHook: MapstructureDecodeHook,
-		Result:     c.Module,
-	}
-	decoder, _ := mapstructure.NewDecoder(mapstructureConfig)
-	err := decoder.Decode(data)
+	err := config.NewMapStructureDecoder(c.Module).Decode(data)
 	if err != nil {
 		return err
 	}

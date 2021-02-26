@@ -3,9 +3,16 @@ package config
 import (
 	"fmt"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/model"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
+)
+
+const (
+	// TimeLayout used for time configuration
+	TimeLayout = "15:04:05"
 )
 
 // Gotomation is the struct to unmarshal configuration
@@ -68,4 +75,23 @@ func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config G
 
 	loadConfig(g)
 	return nil
+}
+
+// MapstructureDecodeHookFunc returns a mapstructure decode hook func to handle Gotomation configuration objects
+func MapstructureDecodeHookFunc() mapstructure.DecodeHookFunc {
+	return mapstructure.ComposeDecodeHookFunc(
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToTimeHookFunc(TimeLayout),
+		model.StringToHassEntityDecodeHookFunc(),
+	)
+}
+
+// NewMapStructureDecoder returns a new mapstructure.Decoder
+func NewMapStructureDecoder(result interface{}) *mapstructure.Decoder {
+	mapstructureConfig := &mapstructure.DecoderConfig{
+		DecodeHook: MapstructureDecodeHookFunc(),
+		Result:     result,
+	}
+	decoder, _ := mapstructure.NewDecoder(mapstructureConfig)
+	return decoder
 }

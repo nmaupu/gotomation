@@ -1,10 +1,10 @@
 package core
 
 import (
-	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
+	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/routines"
 	"github.com/robfig/cron"
 )
@@ -56,15 +56,10 @@ type CronEntry struct {
 }
 
 // Configure reads the configuration and returns a new Checkable object
-func (c *CronEntry) Configure(config interface{}, i interface{}) error {
+func (c *CronEntry) Configure(data interface{}, i interface{}) error {
 	l := logging.NewLogger("CronEntry.Configure")
 
-	mapstructureConfig := &mapstructure.DecoderConfig{
-		DecodeHook: MapstructureDecodeHook,
-		Result:     c,
-	}
-	decoder, _ := mapstructure.NewDecoder(mapstructureConfig)
-	err := decoder.Decode(config)
+	err := config.NewMapStructureDecoder(c).Decode(data)
 	if err != nil {
 		return err
 	}
