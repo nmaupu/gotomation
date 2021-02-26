@@ -2,9 +2,11 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
+	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/rs/zerolog"
 )
@@ -85,4 +87,31 @@ func (e HassEntity) MarshalZerologObject(event *zerolog.Event) {
 		Str("entity_id", e.EntityID).
 		Str("domain", e.Domain).
 		Str("state", e.State.State)
+}
+
+// StringToHassEntityDecodeHookFunc returns a mapstructure decode hook converting a string to a HassEntity
+func StringToHassEntityDecodeHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data interface{}) (interface{}, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+
+		if t != reflect.TypeOf(HassEntity{}) {
+			return data, nil
+		}
+
+		// Convert it
+		toks := strings.Split(data.(string), ".")
+		if len(toks) < 2 {
+			return nil, fmt.Errorf("Unable to parse entity %s", data.(string))
+		}
+
+		return HassEntity{
+			Domain:   toks[0],
+			EntityID: strings.Join(toks[1:], ""),
+		}, nil
+	}
 }

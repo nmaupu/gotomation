@@ -56,7 +56,7 @@ func main() {
 		Str("build_date", app.BuildDate).
 		Msg("Binary compilation info")
 
-	// Main loop, ctrl+c to stop
+	// Main loop, ctrl+c or kill -15 to stop
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 	ticker := time.NewTicker(time.Second)
