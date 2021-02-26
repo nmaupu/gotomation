@@ -150,6 +150,8 @@ func initCheckers(config *config.Gotomation) {
 				module = new(checkers.Internet)
 			case "calendarChecker":
 				module = new(checkers.Calendar)
+			case "heaterChecker":
+				module = new(checkers.Heater)
 			default:
 				l.Error().Err(fmt.Errorf("Cannot find module")).
 					Str("module", moduleName).

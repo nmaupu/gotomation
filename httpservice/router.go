@@ -3,6 +3,7 @@ package httpservice
 import (
 	"fmt"
 	"net/http"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/app"
@@ -30,6 +31,9 @@ type httpService struct {
 	BindAddr string
 	Port     int
 	server   *http.Server
+
+	started        bool
+	mutexStopStart sync.Mutex
 }
 
 // HTTPServer returns the HTTP server singleton
@@ -47,6 +51,12 @@ func InitHTTPServer(bindAddr string, port int) {
 
 // Start starts the HTTP service
 func (s *httpService) Start() error {
+	s.mutexStopStart.Lock()
+	defer s.mutexStopStart.Unlock()
+	if s.started {
+		return nil
+	}
+
 	l := logging.NewLogger("HTTPService.Start")
 	if s.Port == 0 {
 		l.Warn().Msgf("No port defined for HTTP server, using %d", DefaultHTTPPort)
@@ -75,11 +85,19 @@ func (s *httpService) Start() error {
 		s.server.ListenAndServe()
 	}()
 
+	s.started = true
 	return nil
 }
 
 // Stop stops the HTTP service and free resources
 func (s *httpService) Stop() {
+	s.mutexStopStart.Lock()
+	defer s.mutexStopStart.Unlock()
+
+	if !s.started {
+		return
+	}
+
 	l := logging.NewLogger("HTTPService.Stop")
 	if s.server == nil {
 		l.Warn().Msg("HTTP server is not initialized")
@@ -88,7 +106,13 @@ func (s *httpService) Stop() {
 
 	l.Trace().Msg("Stopping HTTP server")
 	s.server.Shutdown(context.TODO())
+	s.started = false
+}
 
+func (s *httpService) IsStarted() bool {
+	s.mutexStopStart.Lock()
+	defer s.mutexStopStart.Unlock()
+	return s.started
 }
 
 // GetName returns the name of this runnable object
