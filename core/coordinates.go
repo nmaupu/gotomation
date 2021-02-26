@@ -129,7 +129,7 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	}()
 
 	// if set, returning saved values
-	if !noCache && !c.sunrise.IsZero() && !c.sunset.IsZero() {
+	if !noCache && now.Sub(c.lastUpdate) < 12*time.Hour && !c.sunrise.IsZero() && !c.sunset.IsZero() {
 		c.mutex.Lock()
 		defer c.mutex.Unlock()
 		return c.sunrise, c.sunset, nil
