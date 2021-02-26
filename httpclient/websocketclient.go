@@ -62,6 +62,10 @@ type webSocketClient struct {
 	// requestsTracker keeps track of requests sent to the server waiting for a result
 	requestsTracker WebSocketRequestsTracker
 	authenticated   bool
+
+	// started indicates whether or not runnable is started
+	mutexStopStart sync.Mutex
+	started        bool
 }
 
 // NewWebSocketClient returns a new NewWebSocketClient initialized
@@ -139,6 +143,12 @@ func (c *webSocketClient) NextMessageID() uint64 {
 
 // Stop stops the web socket connection and free resources
 func (c *webSocketClient) Stop() {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if !c.started {
+		return
+	}
+
 	c.workerRequestsHandlerStop <- true
 
 	// Cleaning conn and force workerDaemon to get out of the blocking reading func
@@ -147,10 +157,18 @@ func (c *webSocketClient) Stop() {
 	// See workerDaemon func's error handling
 	c.closeConn()
 	c.workerDaemonStop <- true
+	c.started = false
 }
 
 // Start connects, authenticates and listens to Home Assistant WebSocket API
 func (c *webSocketClient) Start() error {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+
+	if c.started {
+		return nil
+	}
+
 	c.mustConnect(2 * time.Second)
 
 	defer func() {
@@ -175,7 +193,14 @@ func (c *webSocketClient) Start() error {
 		c.workerDaemon()
 	}()
 
+	c.started = true
 	return nil
+}
+
+func (c *webSocketClient) IsStarted() bool {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	return c.started
 }
 
 func (c *webSocketClient) recoverDisconnection() {

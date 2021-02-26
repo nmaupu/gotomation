@@ -86,12 +86,12 @@ func MapstructureDecodeHookFunc() mapstructure.DecodeHookFunc {
 	)
 }
 
-// NewMapStructureDecoder returns a new mapstructure.Decoder
+// NewMapStructureDecoder returns a new mapstructure.Decoder ready to read Gotomation configuration
 func NewMapStructureDecoder(result interface{}) *mapstructure.Decoder {
-	mapstructureConfig := &mapstructure.DecoderConfig{
+	decoderConfig := &mapstructure.DecoderConfig{
 		DecodeHook: MapstructureDecodeHookFunc(),
 		Result:     result,
 	}
-	decoder, _ := mapstructure.NewDecoder(mapstructureConfig)
+	decoder, _ := mapstructure.NewDecoder(decoderConfig)
 	return decoder
 }

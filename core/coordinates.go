@@ -39,6 +39,9 @@ type coordinates struct {
 	// mutex ensures that only one thread at a time modifies private variables
 	mutex             *sync.Mutex
 	sunriseSunsetDone chan bool
+
+	started        bool
+	mutexStopStart sync.Mutex
 }
 
 // InitCoordinates gets the latitude and longitude of a Home Assistant zone entity
@@ -69,10 +72,22 @@ func Coords() Coordinates {
 
 // StopSunriseSunset stops the sunrise/sunset refresh goroutine
 func (c *coordinates) Stop() {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if !c.started {
+		return
+	}
 	c.sunriseSunsetDone <- true
+	c.started = false
 }
 
 func (c *coordinates) Start() error {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if c.started {
+		return nil
+	}
+
 	l := logging.NewLogger("Coordinates.Start")
 
 	// first init before ticker ticks
@@ -99,7 +114,14 @@ func (c *coordinates) Start() error {
 		}
 	}()
 
+	c.started = true
 	return nil
+}
+
+func (c *coordinates) IsStarted() bool {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	return c.started
 }
 
 func (c *coordinates) GetLatitude() float64 {

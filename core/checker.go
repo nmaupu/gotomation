@@ -2,11 +2,17 @@ package core
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model/config"
+)
+
+const (
+	// DefaultInterval is used when interval is not set (or set to zero)
+	DefaultInterval = time.Minute * 10
 )
 
 var (
@@ -18,10 +24,19 @@ var (
 type Checker struct {
 	stop   chan bool
 	Module Modular
+
+	started        bool
+	mutexStopStart sync.Mutex
 }
 
 // Start starts to check
 func (c *Checker) Start() error {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if c.started {
+		return nil
+	}
+
 	if c.Module == nil {
 		return fmt.Errorf("Checker is not configured: module is nil")
 	}
@@ -31,7 +46,11 @@ func (c *Checker) Start() error {
 	app.RoutinesWG.Add(1)
 	go func() {
 		defer app.RoutinesWG.Done()
-		ticker := time.NewTicker(c.Module.GetInterval())
+		interval := DefaultInterval
+		if c.Module.GetInterval() > 0 {
+			interval = c.Module.GetInterval()
+		}
+		ticker := time.NewTicker(interval)
 		defer ticker.Stop()
 
 		// Ensure executing module's check right away before first tick
@@ -55,12 +74,27 @@ func (c *Checker) Start() error {
 		}
 	}()
 
+	c.started = true
 	return nil
 }
 
 // Stop stops to check
 func (c *Checker) Stop() {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if !c.started {
+		return
+	}
+
 	c.stop <- true
+	c.started = false
+}
+
+// IsStarted checks whether or not the routine is already started
+func (c *Checker) IsStarted() bool {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	return c.started
 }
 
 // Configure reads the configuration and returns a new Checkable object

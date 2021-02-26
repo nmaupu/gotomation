@@ -7,8 +7,8 @@ import (
 )
 
 var (
+	mutex sync.Mutex
 	// runnables stores all runnable objects
-	mutex     sync.Mutex
 	runnables []Runnable
 )
 
@@ -17,6 +17,7 @@ type Runnable interface {
 	Start() error
 	Stop()
 	GetName() string
+	IsStarted() bool
 }
 
 // AddRunnable adds Runnable objects to the list
@@ -39,6 +40,13 @@ func StartAllRunnables() {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for _, r := range runnables {
+		if r.IsStarted() {
+			l.Warn().
+				Str("runnable", r.GetName()).
+				Msg("Runnable already started")
+			continue
+		}
+
 		l.Info().
 			Str("runnable", r.GetName()).
 			Msg("Starting runnable")
@@ -52,6 +60,13 @@ func StopAllRunnables() {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for _, r := range runnables {
+		if !r.IsStarted() {
+			l.Warn().
+				Str("runnable", r.GetName()).
+				Msg("Runnable already stopped")
+			continue
+		}
+
 		l.Info().
 			Str("runnable", r.GetName()).
 			Msg("Stopping runnable")

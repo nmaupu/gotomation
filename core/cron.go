@@ -1,6 +1,8 @@
 package core
 
 import (
+	"sync"
+
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
@@ -21,6 +23,9 @@ type Crontab interface {
 
 type crontab struct {
 	*cron.Cron
+
+	started        bool
+	mutexStopStart sync.Mutex
 }
 
 // NewCrontab returns a new pointer to a Crontab object
@@ -31,12 +36,32 @@ func NewCrontab() Crontab {
 }
 
 func (c *crontab) Start() error {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if c.started {
+		return nil
+	}
+
 	c.Cron.Start()
+	c.started = true
 	return nil
 }
 
 func (c *crontab) Stop() {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	if !c.started {
+		return
+	}
+
 	c.Cron.Stop()
+	c.started = false
+}
+
+func (c *crontab) IsStarted() bool {
+	c.mutexStopStart.Lock()
+	defer c.mutexStopStart.Unlock()
+	return c.started
 }
 
 func (c *crontab) AddFunc(spec string, cmd func()) error {
