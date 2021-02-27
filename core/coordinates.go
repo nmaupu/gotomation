@@ -172,9 +172,10 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 		return time.Time{}, time.Time{}, err
 	}
 
+	// Using now.Location() to get correct timezone (sunrise and sunset doesn't have a Location set to return UTC time.UTC)
 	c.mutex.Lock()
-	c.sunrise = time.Date(now.Year(), now.Month(), now.Day(), sunrise.Hour(), sunrise.Minute(), sunrise.Second(), sunrise.Nanosecond(), sunrise.Location())
-	c.sunset = time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), sunset.Nanosecond(), sunset.Location())
+	c.sunrise = time.Date(now.Year(), now.Month(), now.Day(), sunrise.Hour(), sunrise.Minute(), sunrise.Second(), sunrise.Nanosecond(), now.Location())
+	c.sunset = time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), sunset.Nanosecond(), now.Location())
 	c.mutex.Unlock()
 
 	c.lastUpdate = now
