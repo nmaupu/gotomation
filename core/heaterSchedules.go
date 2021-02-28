@@ -7,6 +7,7 @@ import (
 
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model/config"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -65,7 +66,22 @@ func (c HeaterSchedule) End(loc *time.Location) time.Time {
 
 // IsActive returns true if given 't' is between c.Beg and c.End
 func (c HeaterSchedule) IsActive(t time.Time) bool {
-	return t.After(c.Beg(t.Location())) && t.Before(c.End(t.Location()))
+	l := logging.NewLogger("HeaterSchedule.IsActive")
+	ret := t.After(c.Beg(t.Location())) && t.Before(c.End(t.Location()))
+	l.Debug().
+		EmbedObject(c).
+		Bool("ret", ret).
+		Time("t", t).Msg("Checking if schedule is active")
+	return ret
+}
+
+// MarshalZerologObject godoc
+func (c HeaterSchedule) MarshalZerologObject(event *zerolog.Event) {
+	event.
+		Time("beg", c.beg).
+		Time("end", c.end).
+		Float64("confort", c.Confort).
+		Float64("eco", c.Eco)
 }
 
 // AsFlag returns an int from a SchedulesDays
