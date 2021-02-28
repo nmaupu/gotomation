@@ -68,9 +68,13 @@ func (w *fileWatcher) Start() error {
 
 	loop:
 		for {
-			l.Info().Msg("Looping")
 			select {
 			case event := <-w.Watcher.Events:
+				l.Debug().
+					Str("event", event.Name).
+					Str("event_op", event.Op.String()).
+					Str("event_string", event.String()).
+					Msg("FileWatcher event received")
 				if event.Op&fsnotify.Write == fsnotify.Write {
 					err := w.loadConf()
 					if err != nil {
