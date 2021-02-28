@@ -16,16 +16,18 @@ import (
 type FileWatcher interface {
 	routines.Runnable
 	SetFilename(filename string)
+	AddOnReloadCallbacks(funcs ...func(data interface{}))
 }
 
 type fileWatcher struct {
 	*fsnotify.Watcher
-	onChangeFuncs []func()
-	mutex         sync.Mutex
-	started       bool
-	filename      string
-	getTypeFunc   func() interface{}
-	stopChan      chan bool
+	onChangeFuncs     []func()
+	mutex             sync.Mutex
+	started           bool
+	filename          string
+	getTypeFunc       func() interface{}
+	stopChan          chan bool
+	onReloadCallbacks []func(data interface{})
 }
 
 // NewFileWatcher returns a FileWatcher
@@ -45,6 +47,12 @@ func NewFileWatcher(filename string, getTypeFunc func() interface{}) FileWatcher
 		getTypeFunc: getTypeFunc,
 		stopChan:    make(chan bool, 1),
 	}
+}
+
+func (w *fileWatcher) AddOnReloadCallbacks(funcs ...func(data interface{})) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	w.onReloadCallbacks = append(w.onReloadCallbacks, funcs...)
 }
 
 // Start starts the watcher
@@ -70,7 +78,7 @@ func (w *fileWatcher) Start() error {
 		for {
 			select {
 			case event := <-w.Watcher.Events:
-				l.Debug().
+				l.Trace().
 					Str("event", event.Name).
 					Str("event_op", event.Op.String()).
 					Str("event_string", event.String()).
@@ -80,6 +88,11 @@ func (w *fileWatcher) Start() error {
 					if err != nil {
 						l.Error().Err(err).Send()
 					}
+				} else if event.Op&fsnotify.Remove == fsnotify.Remove {
+					// happens sometimes depending on editor or when using rsync, re-add and reload file
+					w.Watcher.Remove(w.filename)
+					w.Watcher.Add(w.filename)
+					w.loadConf()
 				}
 			case err := <-w.Watcher.Errors:
 				l.Error().Err(err).Msg("An error occurred watching file")
@@ -148,5 +161,14 @@ func (w *fileWatcher) loadConf() error {
 		config.Result = result
 		config.DecodeHook = MapstructureDecodeHookFunc()
 	}
-	return vi.Unmarshal(result, decoderConfigFunc)
+	ret := vi.Unmarshal(result, decoderConfigFunc)
+
+	// Calling callbacks to notify change
+	if ret == nil {
+		for _, f := range w.onReloadCallbacks {
+			f(result)
+		}
+	}
+
+	return ret
 }

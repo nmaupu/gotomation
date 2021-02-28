@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -159,6 +160,16 @@ func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
 	}
 
 	return finalTemp
+}
+
+// MarshalZerologObject godoc
+func (c *HeaterSchedules) MarshalZerologObject(event *zerolog.Event) {
+	for schedName, s := range c.Scheds {
+		for idx, sched := range s {
+			event = event.Object(fmt.Sprintf("%s[%d]", schedName, idx), sched)
+		}
+
+	}
 }
 
 // Configure reads the configuration and returns a new Checkable object

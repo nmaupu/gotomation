@@ -90,8 +90,16 @@ func (h *Heater) initSchedulesConfig() error {
 	l.Info().Str("filename", h.SchedulesFile).Msg("Configuring heater schedules")
 
 	h.configFileWatcher = config.NewFileWatcher(h.SchedulesFile, h.getSchedulesType)
+	h.configFileWatcher.AddOnReloadCallbacks(func(data interface{}) {
+		h.printDebugSchedules()
+	})
 	routines.AddRunnable(h.configFileWatcher)
 	return h.configFileWatcher.Start()
+}
+
+func (h *Heater) printDebugSchedules() {
+	l := logging.NewLogger("Heater.printDebugSchedules").With().Str("filename", h.SchedulesFile).Logger()
+	l.Debug().EmbedObject(h.schedules).Msg("Reloading heater's config")
 }
 
 func (h *Heater) getSchedulesType() interface{} {
