@@ -116,9 +116,9 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 
 }
 
-// inTimeRange checks if current time is in between TimeBeg and TimeEnd
+// inTimeRange checks if current time is between TimeBeg and TimeEnd
 func (t *Dehumidifier) inTimeRange() bool {
-	now := time.Now().Local()
+	now := time.Now()
 	beg := time.Date(now.Year(), now.Month(), now.Day(), t.TimeBeg.Hour(), t.TimeBeg.Minute(), t.TimeBeg.Second(), 0, time.Local)
 	end := time.Date(now.Year(), now.Month(), now.Day(), t.TimeEnd.Hour(), t.TimeEnd.Minute(), t.TimeEnd.Second(), 0, time.Local)
 	return now.After(beg) && now.Before(end)

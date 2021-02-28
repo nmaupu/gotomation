@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/nmaupu/gotomation/core"
+	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
@@ -59,10 +61,24 @@ func (h *Heater) Check() {
 		return
 	}
 
+	// Getting manual override status
+	overrideEntity, err := httpclient.GetSimpleClient().GetEntity(h.ManualOverride.Domain, h.ManualOverride.EntityID)
+	if err != nil {
+		l.Error().Err(err).Msg("Error getting manual_override entity from Home Assistant")
+	}
+	if overrideEntity.State.IsON() {
+		l.Debug().Msg("manual_override is on, nothing to do")
+		return
+	}
+
+	now := time.Now().Local()
+	temp := h.schedules.GetTemperatureToSet(now)
+
 	l.Info().
 		Str("heater", h.Name).
 		Str("schedules", fmt.Sprintf("%+v", h.schedules)).
-		Msg("Checking heater")
+		Float64("temperature", temp).
+		Msg("Configuring heater's temperature")
 }
 
 func (h *Heater) initSchedulesConfig() error {
