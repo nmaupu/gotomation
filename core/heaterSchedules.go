@@ -43,8 +43,8 @@ type HeaterSchedules struct {
 
 // HeaterSchedule represents a heater's schedule
 type HeaterSchedule struct {
-	beg     time.Time `mapstructure:"beg"`
-	end     time.Time `mapstructure:"end"`
+	Beg     time.Time `mapstructure:"beg"`
+	End     time.Time `mapstructure:"end"`
 	Confort float64   `mapstructure:"confort"`
 	Eco     float64   `mapstructure:"eco"`
 }
@@ -54,20 +54,20 @@ func getTodayTime(t time.Time, loc *time.Location) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), loc)
 }
 
-// Beg returns c.Beg time with today's date
-func (c HeaterSchedule) Beg(loc *time.Location) time.Time {
-	return getTodayTime(c.beg, loc)
+// TodayBeg returns c.Beg time with today's date
+func (c HeaterSchedule) TodayBeg(loc *time.Location) time.Time {
+	return getTodayTime(c.Beg, loc)
 }
 
-// End returns c.End time with today's date
-func (c HeaterSchedule) End(loc *time.Location) time.Time {
-	return getTodayTime(c.end, loc)
+// TodayEnd returns c.End time with today's date
+func (c HeaterSchedule) TodayEnd(loc *time.Location) time.Time {
+	return getTodayTime(c.End, loc)
 }
 
 // IsActive returns true if given 't' is between c.Beg and c.End
 func (c HeaterSchedule) IsActive(t time.Time) bool {
 	l := logging.NewLogger("HeaterSchedule.IsActive")
-	ret := t.After(c.Beg(t.Location())) && t.Before(c.End(t.Location()))
+	ret := t.After(c.TodayBeg(t.Location())) && t.Before(c.TodayEnd(t.Location()))
 	l.Debug().
 		EmbedObject(c).
 		Bool("ret", ret).
@@ -78,8 +78,8 @@ func (c HeaterSchedule) IsActive(t time.Time) bool {
 // MarshalZerologObject godoc
 func (c HeaterSchedule) MarshalZerologObject(event *zerolog.Event) {
 	event.
-		Time("beg", c.beg).
-		Time("end", c.end).
+		Time("beg", c.Beg).
+		Time("end", c.End).
 		Float64("confort", c.Confort).
 		Float64("eco", c.Eco)
 }
@@ -128,7 +128,7 @@ func (c *HeaterSchedules) Sort() {
 		scheds := v
 		sort.Slice(scheds, func(i, j int) bool {
 			// Returns true if i elt > j elt
-			return scheds[i].end.Before(scheds[j].beg)
+			return scheds[i].End.Before(scheds[j].Beg)
 		})
 
 		c.Scheds[k] = scheds
@@ -152,7 +152,7 @@ func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
 				return sched.Confort
 			}
 
-			if t.After(sched.End(t.Location())) {
+			if t.After(sched.TodayEnd(t.Location())) {
 				finalTemp = sched.Eco
 			}
 		}

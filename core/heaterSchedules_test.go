@@ -57,8 +57,8 @@ func TestSchedulesDays_AsFlag(t *testing.T) {
 			want: 0b0111110,
 		},
 		{
-			name: "test_weekend",
-			s:    SchedulesDays("weekend"),
+			name: "test_weekEnd",
+			s:    SchedulesDays("weekEnd"),
 			want: 0b1000001,
 		},
 		{
@@ -67,8 +67,8 @@ func TestSchedulesDays_AsFlag(t *testing.T) {
 			want: 0b1111111,
 		},
 		{
-			name: "test_weekend_monday",
-			s:    SchedulesDays("weekend,monday"),
+			name: "test_weekEnd_monday",
+			s:    SchedulesDays("weekEnd,monday"),
 			want: 0b1000011,
 		},
 		{
@@ -144,26 +144,26 @@ func TestSchedulesDays_IsScheduled(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "test_monday_weekend",
-			s:    SchedulesDays("weekend"),
+			name: "test_monday_weekEnd",
+			s:    SchedulesDays("weekEnd"),
 			t:    monday,
 			want: false,
 		},
 		{
-			name: "test_friday_weekend",
-			s:    SchedulesDays("weekend"),
+			name: "test_friday_weekEnd",
+			s:    SchedulesDays("weekEnd"),
 			t:    friday,
 			want: false,
 		},
 		{
-			name: "test_saturday_weekend",
-			s:    SchedulesDays("weekend"),
+			name: "test_saturday_weekEnd",
+			s:    SchedulesDays("weekEnd"),
 			t:    saturday,
 			want: true,
 		},
 		{
-			name: "test_sunday_weekend",
-			s:    SchedulesDays("weekend"),
+			name: "test_sunday_weekEnd",
+			s:    SchedulesDays("weekEnd"),
 			t:    sunday,
 			want: true,
 		},
@@ -217,20 +217,20 @@ func TestHeaterSchedules_Sort(t *testing.T) {
 	wantedSchedules := map[SchedulesDays][]HeaterSchedule{
 		"week": {
 			{
-				beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
-				end: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
+				Beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
+				End: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
 			},
 			{
-				beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
-				end: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
+				Beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
+				End: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
 			},
 			{
-				beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
-				end: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
+				Beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
+				End: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
 			},
 			{
-				beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
-				end: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
+				Beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
+				End: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
 			},
 		},
 	}
@@ -245,20 +245,20 @@ func TestHeaterSchedules_Sort(t *testing.T) {
 			schedules: map[SchedulesDays][]HeaterSchedule{
 				"week": {
 					{
-						beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
 					},
 				},
 			},
@@ -269,20 +269,20 @@ func TestHeaterSchedules_Sort(t *testing.T) {
 			schedules: map[SchedulesDays][]HeaterSchedule{
 				"week": {
 					{
-						beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
 					},
 				},
 			},
@@ -293,20 +293,20 @@ func TestHeaterSchedules_Sort(t *testing.T) {
 			schedules: map[SchedulesDays][]HeaterSchedule{
 				"week": {
 					{
-						beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
 					},
 					{
-						beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
-						end: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
+						Beg: time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
+						End: time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
 					},
 				},
 			},
@@ -324,8 +324,8 @@ func TestHeaterSchedules_Sort(t *testing.T) {
 				sortedSlice := sched
 				wantedSlice := tt.want[key]
 				for k, v := range sortedSlice {
-					if !v.beg.Equal(wantedSlice[k].beg) || !v.end.Equal(wantedSlice[k].end) {
-						t.Errorf("Sort is not ok, sorted=[%v,%v] wanted=[%v,%v]", v.beg, v.end, wantedSlice[k].beg, wantedSlice[k].end)
+					if !v.Beg.Equal(wantedSlice[k].Beg) || !v.End.Equal(wantedSlice[k].End) {
+						t.Errorf("Sort is not ok, sorted=[%v,%v] wanted=[%v,%v]", v.Beg, v.End, wantedSlice[k].Beg, wantedSlice[k].End)
 					}
 				}
 			}
@@ -335,28 +335,28 @@ func TestHeaterSchedules_Sort(t *testing.T) {
 
 func TestHeaterSchedules_GetTemperatureToSet(t *testing.T) {
 	scheds := map[SchedulesDays][]HeaterSchedule{
-		"week,weekend": {
+		"week,weekEnd": {
 			{
-				beg:     time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
-				end:     time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
+				Beg:     time.Date(0, 0, 0, 14, 0, 0, 0, time.Local),
+				End:     time.Date(0, 0, 0, 15, 0, 0, 0, time.Local),
 				Eco:     14,
 				Confort: 15,
 			},
 			{
-				beg:     time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
-				end:     time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
+				Beg:     time.Date(0, 0, 0, 12, 0, 0, 0, time.Local),
+				End:     time.Date(0, 0, 0, 13, 0, 0, 0, time.Local),
 				Eco:     12,
 				Confort: 13,
 			},
 			{
-				beg:     time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
-				end:     time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
+				Beg:     time.Date(0, 0, 0, 10, 0, 0, 0, time.Local),
+				End:     time.Date(0, 0, 0, 11, 0, 0, 0, time.Local),
 				Eco:     10,
 				Confort: 11,
 			},
 			{
-				beg:     time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
-				end:     time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
+				Beg:     time.Date(0, 0, 0, 8, 0, 0, 0, time.Local),
+				End:     time.Date(0, 0, 0, 9, 0, 0, 0, time.Local),
 				Eco:     8,
 				Confort: 9,
 			},
