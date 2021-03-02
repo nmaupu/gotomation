@@ -2,9 +2,10 @@ package core
 
 import (
 	"errors"
-	"reflect"
+	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/logging"
 )
 
@@ -14,6 +15,7 @@ var (
 
 // Module is the base struct to build a module
 type Module struct {
+	Name     string        `mapstructure:"name"`
 	Enabled  bool          `mapstructure:"enabled"`
 	Interval time.Duration `mapstructure:"interval"`
 }
@@ -36,5 +38,10 @@ func (m Module) IsEnabled() bool {
 
 // GetName return the name of the module
 func (m Module) GetName() string {
-	return reflect.TypeOf(m).Name()
+	return m.Name
+}
+
+// GinHandler godoc
+func (m Module) GinHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, m)
 }

@@ -3,7 +3,6 @@ package checkers
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/go-ping/ping"
@@ -32,11 +31,6 @@ type Internet struct {
 	RestartEntity model.HassEntity `mapstructure:"restart_entity"`
 	// lastReboot stores the last reboot time
 	lastReboot time.Time
-}
-
-// GetName godoc
-func (c Internet) GetName() string {
-	return reflect.TypeOf(c).Name()
 }
 
 // Check runs a single check

@@ -3,14 +3,14 @@ package checkers
 import (
 	"errors"
 	"fmt"
-	"reflect"
+	"net/http"
 	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
-	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/routines"
 )
@@ -21,20 +21,12 @@ var (
 
 // Heater sets the heater's thermostat based on schedules
 type Heater struct {
-	core.Module    `mapstructure:",squash"`
-	Name           string           `mapstructure:"name"`
-	SchedulesFile  string           `mapstructure:"schedules_file"`
-	ManualOverride model.HassEntity `mapstructure:"manual_override"`
-	Thermostat     model.HassEntity `mapstructure:"thermostat"`
+	core.Module   `mapstructure:",squash"`
+	SchedulesFile string `mapstructure:"schedules_file"`
 
 	configMutex       sync.Mutex
 	configFileWatcher config.FileWatcher
 	schedules         *core.HeaterSchedules
-}
-
-// GetName godoc
-func (h *Heater) GetName() string {
-	return reflect.TypeOf(h).Elem().Name()
 }
 
 // Check runs a single check
@@ -62,7 +54,7 @@ func (h *Heater) Check() {
 	}
 
 	// Getting manual override status
-	overrideEntity, err := httpclient.GetSimpleClient().GetEntity(h.ManualOverride.Domain, h.ManualOverride.EntityID)
+	overrideEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.ManualOverride.Domain, h.schedules.ManualOverride.EntityID)
 	if err != nil {
 		l.Error().Err(err).Msg("Error getting manual_override entity from Home Assistant")
 	}
@@ -109,4 +101,19 @@ func (h *Heater) getSchedulesType() interface{} {
 	defer h.configMutex.Unlock()
 	h.schedules = &core.HeaterSchedules{}
 	return h.schedules
+}
+
+// GinHandler godoc
+func (h *Heater) GinHandler(c *gin.Context) {
+	obj := struct {
+		core.Module
+		Name      string
+		Schedules core.HeaterSchedules
+	}{
+		Module:    h.Module,
+		Name:      h.Name,
+		Schedules: *h.schedules,
+	}
+
+	c.JSON(http.StatusOK, obj)
 }
