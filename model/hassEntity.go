@@ -19,7 +19,7 @@ var (
 type HassEntity struct {
 	EntityID string
 	Domain   string
-	State    HassState
+	State    HassState `json:"-"`
 }
 
 // GetEntityIDFullName return the entity_id in the form domain.entity_id

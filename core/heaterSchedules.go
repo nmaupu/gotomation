@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/rs/zerolog"
 )
@@ -38,8 +39,10 @@ type SchedulesDays string
 
 // HeaterSchedules stores all schedules for a heater
 type HeaterSchedules struct {
-	Scheds     map[SchedulesDays][]HeaterSchedule `mapstructure:"schedules"`
-	DefaultEco float64                            `mapstructure:"default_eco"`
+	Scheds         map[SchedulesDays][]HeaterSchedule `mapstructure:"schedules"`
+	DefaultEco     float64                            `mapstructure:"default_eco"`
+	ManualOverride model.HassEntity                   `mapstructure:"manual_override"`
+	Thermostat     model.HassEntity                   `mapstructure:"thermostat"`
 }
 
 // HeaterSchedule represents a heater's schedule

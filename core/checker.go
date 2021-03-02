@@ -120,5 +120,10 @@ func (c *Checker) Configure(data interface{}, module interface{}) error {
 
 // GetName returns the name of this runnable object
 func (c *Checker) GetName() string {
-	return fmt.Sprintf("Checker/%s", c.Module.GetName())
+	return fmt.Sprintf("checker/%s", c.Module.GetName())
+}
+
+// GetModule godoc
+func (c *Checker) GetModule() Modular {
+	return c.Module
 }

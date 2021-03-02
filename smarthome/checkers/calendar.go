@@ -1,7 +1,6 @@
 package checkers
 
 import (
-	"reflect"
 	"time"
 
 	"github.com/nmaupu/gotomation/core"
@@ -17,15 +16,11 @@ var (
 // Calendar checks calendar for new events once in a while
 type Calendar struct {
 	core.Module `mapstructure:",squash"`
+	Name        string `mapstructure:"name"`
 	Cals        []struct {
 		Name string `mapstructure:"name"`
 		ID   string `mapstructure:"id"`
 	} `mapstructure:"cals"`
-}
-
-// GetName godoc
-func (c Calendar) GetName() string {
-	return reflect.TypeOf(c).Name()
 }
 
 // Check runs a single check

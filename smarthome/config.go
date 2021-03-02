@@ -2,8 +2,11 @@ package smarthome
 
 import (
 	"fmt"
+	"net/http"
+	"path"
 	"sync"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/app"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
@@ -19,12 +22,26 @@ import (
 )
 
 var (
-	// mutex is used to lock map access by one goroutine only
-	mutex      sync.Mutex
-	mCheckers  map[string]core.Checkable
-	mTriggers  map[string]core.Triggerable
-	crontab    core.Crontab
-	httpServer httpservice.HTTPService
+	// ModuleInternetChecker is a module to check the internet connection
+	ModuleInternetChecker = "internetChecker"
+	// ModuleHeaterChecker is a module to set heater temperature
+	ModuleHeaterChecker = "heaterChecker"
+	// ModuleCalendarChecker checks a calendar at regular interval
+	ModuleCalendarChecker = "calendarChecker"
+	// TriggerDehumidifier triggers dehumidifier on or off depending on humidity
+	TriggerDehumidifier = "dehumidifier"
+	// TriggerHarmony uses Roku Emulated to make actions based on Harmony remote buttons press
+	TriggerHarmony = "harmony"
+	// TriggerCalendarLights set to on or off lights based on calendar events
+	TriggerCalendarLights = "calendarLights"
+)
+
+var (
+	// mutex is used to lock maps' access by one goroutine only
+	mutex     sync.Mutex
+	mCheckers map[string][]core.Checkable
+	mTriggers map[string][]core.Triggerable
+	crontab   core.Crontab
 )
 
 // Init inits modules from configuration
@@ -43,11 +60,11 @@ func Init(config config.Gotomation) {
 		return
 	}
 
+	initHTTPServer(&config)
 	initGoogle(&config)
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
-	initHTTPServer(&config)
 	routines.StartAllRunnables()
 }
 
@@ -96,7 +113,7 @@ func initGoogle(config *config.Gotomation) {
 
 func initTriggers(config *config.Gotomation) {
 	l := logging.NewLogger("initTriggers")
-	mTriggers = make(map[string]core.Triggerable, 0)
+	mTriggers = make(map[string][]core.Triggerable, 0)
 
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
@@ -104,11 +121,11 @@ func initTriggers(config *config.Gotomation) {
 			var action core.Actionable
 
 			switch triggerName {
-			case "dehumidifier":
+			case TriggerDehumidifier:
 				action = new(triggers.Dehumidifier)
-			case "harmony":
+			case TriggerHarmony:
 				action = new(triggers.Harmony)
-			case "calendarLights":
+			case TriggerCalendarLights:
 				action = new(triggers.CalendarLights)
 			default:
 				l.Warn().
@@ -129,7 +146,10 @@ func initTriggers(config *config.Gotomation) {
 				Bool("enabled", trigger.Action.IsEnabled()).
 				Msg("Initializing trigger")
 
-			mTriggers[triggerName] = trigger
+			if mTriggers[triggerName] == nil {
+				mTriggers[triggerName] = make([]core.Triggerable, 0)
+			}
+			mTriggers[triggerName] = append(mTriggers[triggerName], trigger)
 		}
 	}
 }
@@ -138,7 +158,7 @@ func initCheckers(config *config.Gotomation) {
 	l := logging.NewLogger("initCheckers")
 
 	// (Re)init checkers map
-	mCheckers = make(map[string]core.Checkable, 0)
+	mCheckers = make(map[string][]core.Checkable, 0)
 
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
@@ -146,11 +166,11 @@ func initCheckers(config *config.Gotomation) {
 			var module core.Modular
 
 			switch moduleName {
-			case "internetChecker":
+			case ModuleInternetChecker:
 				module = new(checkers.Internet)
-			case "calendarChecker":
+			case ModuleCalendarChecker:
 				module = new(checkers.Calendar)
-			case "heaterChecker":
+			case ModuleHeaterChecker:
 				module = new(checkers.Heater)
 			default:
 				l.Error().Err(fmt.Errorf("Cannot find module")).
@@ -171,10 +191,18 @@ func initCheckers(config *config.Gotomation) {
 				Bool("enabled", checker.Module.IsEnabled()).
 				Msg("Initializing checker")
 
-			mCheckers[moduleName] = checker
+			if mCheckers[moduleName] == nil {
+				mCheckers[moduleName] = make([]core.Checkable, 0)
+			}
+			mCheckers[moduleName] = append(mCheckers[moduleName], checker)
 			routines.AddRunnable(checker)
 		}
 	}
+
+	httpservice.HTTPServer().AddExtraHandlers(httpservice.GinConfigHandlers{
+		Path:     "/checker/:name",
+		Handlers: []gin.HandlerFunc{checkerGinHandler},
+	})
 }
 
 func initCrons(config *config.Gotomation) {
@@ -240,20 +268,37 @@ func EventCallback(msg model.HassAPIObject) {
 		Msg("Event received by the callback func")
 
 	// Look for the entity
-	for _, t := range mTriggers {
-		if !t.GetActionable().IsEnabled() {
-			continue
-		}
+	for _, triggers := range mTriggers {
+		for _, t := range triggers {
+			if !t.GetActionable().IsEnabled() {
+				continue
+			}
 
-		// Checking event types if defined
-		toTriggerEvents := core.StringInSliceP(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
+			// Checking event types if defined
+			toTriggerEvents := core.StringInSliceP(event.Event.EventType, t.GetActionable().GetEventTypesForTrigger())
 
-		eventEntity := model.NewHassEntity(event.Event.Data.EntityID)
-		toTriggerEntities := eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger())
+			eventEntity := model.NewHassEntity(event.Event.Data.EntityID)
+			toTriggerEntities := eventEntity.IsContained(t.GetActionable().GetEntitiesForTrigger())
 
-		if toTriggerEvents || toTriggerEntities {
-			// Call object's trigger func
-			t.GetActionable().Trigger(event)
+			if toTriggerEvents || toTriggerEntities {
+				// Call object's trigger func
+				t.GetActionable().Trigger(event)
+			}
 		}
 	}
+}
+
+func checkerGinHandler(c *gin.Context) {
+	name := c.Params.ByName("name")
+
+	for _, checkables := range mCheckers {
+		for _, ch := range checkables {
+			if path.Base(ch.GetName()) == name { // Removing any checker/ in the name
+				ch.GetModule().GinHandler(c)
+				return
+			}
+		}
+	}
+
+	c.AbortWithStatusJSON(http.StatusNotFound, model.NewAPIError(fmt.Errorf("Unable to find checker %s", name)))
 }

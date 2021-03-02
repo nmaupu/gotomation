@@ -6,4 +6,5 @@ import "github.com/nmaupu/gotomation/routines"
 type Checkable interface {
 	Configurable
 	routines.Runnable
+	GetModule() Modular
 }

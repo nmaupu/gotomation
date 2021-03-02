@@ -25,6 +25,7 @@ const (
 // HTTPService is Gotomation's HTTP server
 type HTTPService interface {
 	routines.Runnable
+	AddExtraHandlers(getHandlers ...GinConfigHandlers)
 }
 
 type httpService struct {
@@ -34,6 +35,8 @@ type httpService struct {
 
 	started        bool
 	mutexStopStart sync.Mutex
+
+	router *gin.Engine
 }
 
 // HTTPServer returns the HTTP server singleton
@@ -42,10 +45,35 @@ func HTTPServer() HTTPService {
 }
 
 // InitHTTPServer inits HTTP server singleton
-func InitHTTPServer(bindAddr string, port int) {
+func InitHTTPServer(bindAddr string, port int, getExtraHandlers ...GinConfigHandlers) {
 	httpServer = httpService{
 		BindAddr: bindAddr,
 		Port:     port,
+		router:   gin.New(),
+	}
+
+	httpServer.router.Use(gin.Recovery())
+	httpServer.router.GET("/health", controllers.HealthHandler)
+	httpServer.router.GET("/google-validate", controllers.GoogleWebTokenHandler)
+	httpServer.router.GET("/coords", controllers.CoordsHandler)
+	httpServer.router.GET("/sun", controllers.SunriseSunsetHandler)
+	httpServer.AddExtraHandlers(getExtraHandlers...)
+}
+
+// GinConfigHandlers stores gin handlers configuration
+type GinConfigHandlers struct {
+	Path     string
+	Handlers []gin.HandlerFunc
+}
+
+func (s *httpService) AddExtraHandlers(getHandlers ...GinConfigHandlers) {
+	if s.router == nil {
+		return
+	}
+
+	// Configuring extra handlers
+	for _, eh := range getHandlers {
+		s.router.GET(eh.Path, eh.Handlers...)
 	}
 }
 
@@ -66,17 +94,9 @@ func (s *httpService) Start() error {
 	l.Info().Msg("Starting HTTP server")
 	gin.SetMode(gin.ReleaseMode)
 
-	router := gin.New()
-	router.Use(gin.Recovery())
-
-	router.GET("/health", controllers.HealthHandler)
-	router.GET("/google-validate", controllers.GoogleWebTokenHandler)
-	router.GET("/coords", controllers.CoordsHandler)
-	router.GET("/sun", controllers.SunriseSunsetHandler)
-
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf("%s:%d", s.BindAddr, s.Port),
-		Handler: router,
+		Handler: s.router,
 	}
 
 	app.RoutinesWG.Add(1)
