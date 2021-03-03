@@ -2,7 +2,6 @@ package checkers
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -13,6 +12,11 @@ import (
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/routines"
+)
+
+const (
+	temperatureAttributeName = "temperature"
+	setTemperatureService    = "set_temperature"
 )
 
 var (
@@ -56,21 +60,45 @@ func (h *Heater) Check() {
 	// Getting manual override status
 	overrideEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.ManualOverride.Domain, h.schedules.ManualOverride.EntityID)
 	if err != nil {
-		l.Error().Err(err).Msg("Error getting manual_override entity from Home Assistant")
+		l.Warn().Err(err).Msg("Error getting manual_override entity from Home Assistant")
 	}
 	if overrideEntity.State.IsON() {
 		l.Debug().Msg("manual_override is on, nothing to do")
 		return
 	}
 
-	now := time.Now().Local()
-	temp := h.schedules.GetTemperatureToSet(now)
+	// Getting current temperature
+	climateEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.Thermostat.Domain, h.schedules.Thermostat.EntityID)
+	if err != nil {
+		l.Error().Err(err).Msg("Unable to get current thermostat temperature")
+		return
+	}
 
-	l.Info().
-		Str("heater", h.Name).
-		Str("schedules", fmt.Sprintf("%+v", h.schedules)).
-		Float64("temperature", temp).
-		Msg("Configuring heater's temperature")
+	// Computing correct temperature depending on time
+	tempToSet := h.schedules.GetTemperatureToSet(time.Now())
+	currentTemp, ok := (climateEntity.State.Attributes[temperatureAttributeName]).(float64)
+
+	l = l.With().
+		Str("climate", h.schedules.Thermostat.GetEntityIDFullName()).
+		Float64("temp", tempToSet).
+		Float64("cur_temp", currentTemp).Logger()
+
+	if !ok || tempToSet != currentTemp {
+		err := httpclient.GetSimpleClient().CallService(
+			climateEntity,
+			setTemperatureService,
+			map[string]interface{}{
+				temperatureAttributeName: tempToSet,
+			})
+		if err != nil {
+			l.Error().Err(err).Msg("Unable to set new temperature for climate")
+			return
+		}
+
+		l.Info().Msg("Setting new temperature for climate")
+	} else {
+		l.Debug().Msg("Temperature already set, nothing to do")
+	}
 }
 
 func (h *Heater) initSchedulesConfig() error {
@@ -95,7 +123,7 @@ func (h *Heater) printDebugSchedules() {
 }
 
 func (h *Heater) getSchedulesType() interface{} {
-	// Ensure locking access to configuration because if we are in Check when the watcher kicks in
+	// Ensure locking access to configuration because if we are in Check when the file watcher kicks in
 	// we are going to be in trouble...
 	h.configMutex.Lock()
 	defer h.configMutex.Unlock()
