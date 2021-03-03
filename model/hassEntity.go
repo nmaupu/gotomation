@@ -32,7 +32,7 @@ func (e HassEntity) GetEntityIDFullName() string {
 }
 
 // NewHassEntity returns a new HassEntity from a full name such as light.living
-// where Domain: light and EntityID: living
+// where Domain=light and EntityID=living
 func NewHassEntity(entityID string) HassEntity {
 	vals := strings.Split(entityID, ".")
 

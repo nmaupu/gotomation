@@ -141,6 +141,10 @@ func (c *HeaterSchedules) Sort() {
 
 // GetTemperatureToSet returns the temperature to set corresponding to the time given in parameter
 func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
+	if t.Location() == nil {
+		t = t.Local()
+	}
+
 	finalTemp := c.DefaultEco
 	// Sorting schedules to get stuff in order (eco temp of the previous time range
 	// is the temperature to set if we are not currently in a "confort" time range)
