@@ -40,3 +40,8 @@ func (t *Trigger) Configure(data interface{}, action interface{}) error {
 func (t *Trigger) GetActionable() Actionable {
 	return t.Action
 }
+
+// GetName godoc
+func (t *Trigger) GetName() string {
+	return fmt.Sprintf("trigger/%s", t.Action.GetName())
+}

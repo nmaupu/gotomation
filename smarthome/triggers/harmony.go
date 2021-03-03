@@ -1,8 +1,10 @@
 package triggers
 
 import (
+	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
@@ -103,4 +105,9 @@ func (h *Harmony) getWorkAction(key string) *workAction {
 	}
 
 	return nil
+}
+
+// GinHandler godoc
+func (h *Harmony) GinHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, *h)
 }

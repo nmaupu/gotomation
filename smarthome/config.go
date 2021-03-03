@@ -152,6 +152,11 @@ func initTriggers(config *config.Gotomation) {
 			mTriggers[triggerName] = append(mTriggers[triggerName], trigger)
 		}
 	}
+
+	httpservice.HTTPServer().AddExtraHandlers(httpservice.GinConfigHandlers{
+		Path:     "/trigger/:name",
+		Handlers: []gin.HandlerFunc{triggerGinHandler},
+	})
 }
 
 func initCheckers(config *config.Gotomation) {
@@ -293,12 +298,27 @@ func checkerGinHandler(c *gin.Context) {
 
 	for _, checkables := range mCheckers {
 		for _, ch := range checkables {
-			if path.Base(ch.GetName()) == name { // Removing any checker/ in the name
-				ch.GetModule().GinHandler(c)
+			if path.Base(ch.GetName()) == name { // Removing any */ in the name
+				ch.GetModular().GinHandler(c)
 				return
 			}
 		}
 	}
 
 	c.AbortWithStatusJSON(http.StatusNotFound, model.NewAPIError(fmt.Errorf("Unable to find checker %s", name)))
+}
+
+func triggerGinHandler(c *gin.Context) {
+	name := c.Params.ByName("name")
+
+	for _, triggers := range mTriggers {
+		for _, tr := range triggers {
+			if path.Base(tr.GetName()) == name { // Removing any */ in the name
+				tr.GetActionable().GinHandler(c)
+				return
+			}
+		}
+	}
+
+	c.AbortWithStatusJSON(http.StatusNotFound, model.NewAPIError(fmt.Errorf("Unable to find trigger %s", name)))
 }

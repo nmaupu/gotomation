@@ -3,8 +3,10 @@ package triggers
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
@@ -61,4 +63,9 @@ func (c *CalendarLights) Trigger(event *model.HassEvent) {
 	if err != nil {
 		l.Error().Err(err).EmbedObject(entity).Msgf("Cannot call service %s on entity", service)
 	}
+}
+
+// GinHandler godoc
+func (c *CalendarLights) GinHandler(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, *c)
 }

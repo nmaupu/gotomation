@@ -107,12 +107,14 @@ func (h *Heater) getSchedulesType() interface{} {
 func (h *Heater) GinHandler(c *gin.Context) {
 	obj := struct {
 		core.Module
-		Name      string
-		Schedules core.HeaterSchedules
+		Name          string
+		SchedulesFile string
+		Schedules     core.HeaterSchedules
 	}{
-		Module:    h.Module,
-		Name:      h.Name,
-		Schedules: *h.schedules,
+		Module:        h.Module,
+		Name:          h.Name,
+		SchedulesFile: h.SchedulesFile,
+		Schedules:     *h.schedules,
 	}
 
 	c.JSON(http.StatusOK, obj)

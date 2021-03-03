@@ -4,4 +4,5 @@ package core
 type Triggerable interface {
 	Configurable
 	GetActionable() Actionable
+	GetName() string
 }

@@ -2,7 +2,9 @@ package core
 
 import (
 	"errors"
+	"net/http"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
 )
@@ -13,6 +15,8 @@ var (
 
 // Action is triggered on state change
 type Action struct {
+	// Name of the action object
+	Name string `mapstructure:"name"`
 	// Enabled enables or disables the Action object
 	Enabled bool `mapstructure:"enabled"`
 	// Entities triggers events only from specific entities. No filter -> all events arrive
@@ -42,4 +46,14 @@ func (a Action) GetEventTypesForTrigger() []string {
 func (a Action) Trigger(e *model.HassEvent) {
 	l := logging.NewLogger("Action.Trigger")
 	l.Error().Err(errors.New("Not implemented")).Msg("")
+}
+
+// GinHandler godoc
+func (a Action) GinHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, a)
+}
+
+// GetName godoc
+func (a Action) GetName() string {
+	return a.Name
 }

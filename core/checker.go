@@ -123,7 +123,7 @@ func (c *Checker) GetName() string {
 	return fmt.Sprintf("checker/%s", c.Module.GetName())
 }
 
-// GetModule godoc
-func (c *Checker) GetModule() Modular {
+// GetModular godoc
+func (c *Checker) GetModular() Modular {
 	return c.Module
 }

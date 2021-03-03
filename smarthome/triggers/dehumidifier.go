@@ -1,9 +1,11 @@
 package triggers
 
 import (
+	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
@@ -32,14 +34,14 @@ type Dehumidifier struct {
 }
 
 // Trigger godoc
-func (t *Dehumidifier) Trigger(event *model.HassEvent) {
+func (d *Dehumidifier) Trigger(event *model.HassEvent) {
 	l := logging.NewLogger("DehumidifierTrigger.Trigger")
 	if event == nil {
 		return
 	}
 
 	switch event.Event.Data.EntityID {
-	case t.ManualOverride.GetEntityIDFullName():
+	case d.ManualOverride.GetEntityIDFullName():
 		l.Debug().
 			Str("state", event.Event.Data.NewState.State).
 			Msg("Manual override changed")
@@ -55,61 +57,61 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 			EmbedObject(event).
 			Msg("Event received")
 
-		switchState, err := httpclient.GetSimpleClient().GetEntity(t.SwitchEntity.Domain, t.SwitchEntity.EntityID)
+		switchState, err := httpclient.GetSimpleClient().GetEntity(d.SwitchEntity.Domain, d.SwitchEntity.EntityID)
 		if err != nil {
 			l.Error().Err(err).
-				Str("device", t.SwitchEntity.GetEntityIDFullName()).
+				Str("device", d.SwitchEntity.GetEntityIDFullName()).
 				Msg("Error, unable to get state for device")
 		}
 
-		if !t.inTimeRange() && switchState.State.State != "on" { // If not in time range, let it get under threshold before switching off
+		if !d.inTimeRange() && switchState.State.State != "on" { // If not in time range, let it get under threshold before switching off
 			l.Debug().
 				Float64("current", currentHum).
-				Float64("threshold_min", t.ThresholdMin).
-				Float64("threshold_max", t.ThresholdMax).
-				Str("time_beg", t.TimeBeg.Format("15:04:05")).
-				Str("time_end", t.TimeEnd.Format("15:04:05")).
+				Float64("threshold_min", d.ThresholdMin).
+				Float64("threshold_max", d.ThresholdMax).
+				Str("time_beg", d.TimeBeg.Format("15:04:05")).
+				Str("time_end", d.TimeEnd.Format("15:04:05")).
 				Msg("Current time is not in range, nothing to do")
 			return
 		}
 
-		if currentHum >= t.ThresholdMax {
+		if currentHum >= d.ThresholdMax {
 			// in range or superior to ThresholdMax - ensure on
 			if switchState.State.State == "off" {
 				l.Debug().
 					Float64("current", currentHum).
-					Float64("threshold_min", t.ThresholdMin).
-					Float64("threshold_max", t.ThresholdMax).
+					Float64("threshold_min", d.ThresholdMin).
+					Float64("threshold_max", d.ThresholdMax).
 					Msg("current >= threshold_max, switching on")
-				httpclient.GetSimpleClient().CallService(t.SwitchEntity, "turn_on", nil)
+				httpclient.GetSimpleClient().CallService(d.SwitchEntity, "turn_on", nil)
 			} else {
 				l.Debug().
 					Float64("current", currentHum).
-					Float64("threshold_min", t.ThresholdMin).
-					Float64("threshold_max", t.ThresholdMax).
+					Float64("threshold_min", d.ThresholdMin).
+					Float64("threshold_max", d.ThresholdMax).
 					Msg("current >= threshold_max but already on, doing nothing")
 			}
-		} else if currentHum <= t.ThresholdMin {
+		} else if currentHum <= d.ThresholdMin {
 			// in range or superior to ThresholdMax - ensure on
 			if switchState.State.State == "on" {
 				l.Debug().
 					Float64("current", currentHum).
-					Float64("threshold_min", t.ThresholdMin).
-					Float64("threshold_max", t.ThresholdMax).
+					Float64("threshold_min", d.ThresholdMin).
+					Float64("threshold_max", d.ThresholdMax).
 					Msg("current <= threshold_min, switching off")
-				httpclient.GetSimpleClient().CallService(t.SwitchEntity, "turn_off", nil)
+				httpclient.GetSimpleClient().CallService(d.SwitchEntity, "turn_off", nil)
 			} else {
 				l.Debug().
 					Float64("current", currentHum).
-					Float64("threshold_min", t.ThresholdMin).
-					Float64("threshold_max", t.ThresholdMax).
+					Float64("threshold_min", d.ThresholdMin).
+					Float64("threshold_max", d.ThresholdMax).
 					Msg("current <= threshold_min but already off, doing nothing")
 			}
 		} else {
 			l.Debug().
 				Float64("current", currentHum).
-				Float64("threshold_min", t.ThresholdMin).
-				Float64("threshold_max", t.ThresholdMax).
+				Float64("threshold_min", d.ThresholdMin).
+				Float64("threshold_max", d.ThresholdMax).
 				Msg("Nothing to do")
 		}
 	}
@@ -117,9 +119,14 @@ func (t *Dehumidifier) Trigger(event *model.HassEvent) {
 }
 
 // inTimeRange checks if current time is between TimeBeg and TimeEnd
-func (t *Dehumidifier) inTimeRange() bool {
+func (d *Dehumidifier) inTimeRange() bool {
 	now := time.Now()
-	beg := time.Date(now.Year(), now.Month(), now.Day(), t.TimeBeg.Hour(), t.TimeBeg.Minute(), t.TimeBeg.Second(), 0, time.Local)
-	end := time.Date(now.Year(), now.Month(), now.Day(), t.TimeEnd.Hour(), t.TimeEnd.Minute(), t.TimeEnd.Second(), 0, time.Local)
+	beg := time.Date(now.Year(), now.Month(), now.Day(), d.TimeBeg.Hour(), d.TimeBeg.Minute(), d.TimeBeg.Second(), 0, time.Local)
+	end := time.Date(now.Year(), now.Month(), now.Day(), d.TimeEnd.Hour(), d.TimeEnd.Minute(), d.TimeEnd.Second(), 0, time.Local)
 	return now.After(beg) && now.Before(end)
+}
+
+// GinHandler godoc
+func (d *Dehumidifier) GinHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, *d)
 }
