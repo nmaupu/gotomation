@@ -16,7 +16,7 @@ import (
 type FileWatcher interface {
 	routines.Runnable
 	SetFilename(filename string)
-	AddOnReloadCallbacks(funcs ...func(data interface{}))
+	AddOnReloadCallbacks(funcs ...func(data interface{}, err error))
 }
 
 type fileWatcher struct {
@@ -27,7 +27,7 @@ type fileWatcher struct {
 	filename          string
 	getTypeFunc       func() interface{}
 	stopChan          chan bool
-	onReloadCallbacks []func(data interface{})
+	onReloadCallbacks []func(data interface{}, err error)
 }
 
 // NewFileWatcher returns a FileWatcher
@@ -49,7 +49,7 @@ func NewFileWatcher(filename string, getTypeFunc func() interface{}) FileWatcher
 	}
 }
 
-func (w *fileWatcher) AddOnReloadCallbacks(funcs ...func(data interface{})) {
+func (w *fileWatcher) AddOnReloadCallbacks(funcs ...func(data interface{}, err error)) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.onReloadCallbacks = append(w.onReloadCallbacks, funcs...)
@@ -161,14 +161,12 @@ func (w *fileWatcher) loadConf() error {
 		config.Result = result
 		config.DecodeHook = MapstructureDecodeHookFunc()
 	}
-	ret := vi.Unmarshal(result, decoderConfigFunc)
+	err = vi.Unmarshal(result, decoderConfigFunc)
 
 	// Calling callbacks to notify change
-	if ret == nil {
-		for _, f := range w.onReloadCallbacks {
-			f(result)
-		}
+	for _, f := range w.onReloadCallbacks {
+		f(result, err)
 	}
 
-	return ret
+	return err
 }
