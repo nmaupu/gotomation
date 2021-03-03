@@ -3,8 +3,10 @@ package checkers
 import (
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/go-ping/ping"
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
@@ -75,4 +77,9 @@ func (c *Internet) Check() {
 			Str("statistics", fmt.Sprintf("%+v", stats)).
 			Msg("Fail but too soon to reboot")
 	}
+}
+
+// GinHandler godoc
+func (c *Internet) GinHandler(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, *c)
 }

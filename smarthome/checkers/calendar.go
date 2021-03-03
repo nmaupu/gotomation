@@ -16,7 +16,6 @@ var (
 // Calendar checks calendar for new events once in a while
 type Calendar struct {
 	core.Module `mapstructure:",squash"`
-	Name        string `mapstructure:"name"`
 	Cals        []struct {
 		Name string `mapstructure:"name"`
 		ID   string `mapstructure:"id"`
