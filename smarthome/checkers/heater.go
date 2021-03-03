@@ -35,7 +35,7 @@ type Heater struct {
 
 // Check runs a single check
 func (h *Heater) Check() {
-	l := logging.NewLogger("Heater.Check")
+	l := logging.NewLogger("Heater.Check").With().Str("module", h.GetName()).Logger()
 
 	// Initial configuration and config change handling
 	if h.schedules == nil {
@@ -46,6 +46,10 @@ func (h *Heater) Check() {
 				Msg("Unable to load configuration from file")
 			return
 		}
+
+		// Temporize to let the FileWatcher load the configuration
+		// Better to do that than a very complex sync system just for initialization (and risking deadlock issues...)
+		time.Sleep(time.Second)
 	}
 
 	// Blocking if we are being reloading the configuration
@@ -53,7 +57,7 @@ func (h *Heater) Check() {
 	defer h.configMutex.Unlock()
 
 	if h.schedules == nil {
-		l.Error().Err(errors.New("Heater's schedules are not set"))
+		l.Error().Err(errors.New("Heater's schedules are not set")).Msg("Unable to Check heater")
 		return
 	}
 
@@ -109,10 +113,19 @@ func (h *Heater) initSchedulesConfig() error {
 	l := logging.NewLogger("Heater.initSchedulesConfig")
 	l.Info().Str("filename", h.SchedulesFile).Msg("Configuring heater schedules")
 
-	h.configFileWatcher = config.NewFileWatcher(h.SchedulesFile, h.getSchedulesType)
-	h.configFileWatcher.AddOnReloadCallbacks(func(data interface{}) {
-		h.printDebugSchedules()
+	h.configFileWatcher = config.NewFileWatcher(h.SchedulesFile, func() interface{} {
+		return &core.HeaterSchedules{}
 	})
+	// Callback when reload is done, unlock the mutex to allow Check() to continue / to be called
+	h.configFileWatcher.AddOnReloadCallbacks(func(data interface{}, err error) {
+		if err == nil {
+			h.configMutex.Lock()
+			h.schedules = data.(*core.HeaterSchedules)
+			defer h.configMutex.Unlock()
+			h.printDebugSchedules()
+		}
+	})
+
 	routines.AddRunnable(h.configFileWatcher)
 	return h.configFileWatcher.Start()
 }
@@ -120,15 +133,6 @@ func (h *Heater) initSchedulesConfig() error {
 func (h *Heater) printDebugSchedules() {
 	l := logging.NewLogger("Heater.printDebugSchedules").With().Str("filename", h.SchedulesFile).Logger()
 	l.Debug().EmbedObject(h.schedules).Msg("Reloading heater's config")
-}
-
-func (h *Heater) getSchedulesType() interface{} {
-	// Ensure locking access to configuration because if we are in Check when the file watcher kicks in
-	// we are going to be in trouble...
-	h.configMutex.Lock()
-	defer h.configMutex.Unlock()
-	h.schedules = &core.HeaterSchedules{}
-	return h.schedules
 }
 
 // GinHandler godoc
