@@ -9,11 +9,11 @@ type WebSocketRequestsTracker struct {
 }
 
 // InProgress adds a WebSocketRequest to the "in progress" list
-func (t *WebSocketRequestsTracker) InProgress(id uint64, request *WebSocketRequest) {
+func (t *WebSocketRequestsTracker) InProgress(request *WebSocketRequest) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	if request == nil {
+	if request == nil || request.Data == nil {
 		return
 	}
 
@@ -21,7 +21,7 @@ func (t *WebSocketRequestsTracker) InProgress(id uint64, request *WebSocketReque
 		t.requests = make(map[uint64]*WebSocketRequest)
 	}
 
-	t.requests[id] = request
+	t.requests[request.Data.GetID()] = request
 }
 
 // Done deletes a previously stored WebSocketRequest and returns it
@@ -35,6 +35,8 @@ func (t *WebSocketRequestsTracker) Done(id uint64) *WebSocketRequest {
 
 // IsInProgress returns true if the request id is already in progress, false otherwise
 func (t *WebSocketRequestsTracker) IsInProgress(id uint64) bool {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	_, ok := t.requests[id]
 	return ok
 }

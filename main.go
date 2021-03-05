@@ -71,7 +71,7 @@ func main() {
 }
 
 func configChange(vi *viper.Viper, config config.Gotomation, loadFunc func(config config.Gotomation)) {
-	l := logging.NewLogger("reloadConf")
+	l := logging.NewLogger("configChange")
 	err := config.ReadConfigFromFile(vi, loadFunc)
 	if err != nil {
 		l.Error().Err(err).Msgf("An error occurred reloading configuration")

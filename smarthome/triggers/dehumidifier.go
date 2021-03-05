@@ -42,9 +42,10 @@ func (d *Dehumidifier) Trigger(event *model.HassEvent) {
 
 	switch event.Event.Data.EntityID {
 	case d.ManualOverride.GetEntityIDFullName():
+		// TODO implement manual override change
 		l.Debug().
 			Str("state", event.Event.Data.NewState.State).
-			Msg("Manual override changed")
+			Msg("Manual override changed (not implemented)")
 
 	default:
 		currentHum, err := strconv.ParseFloat(event.Event.Data.NewState.State, 64)
@@ -128,5 +129,5 @@ func (d *Dehumidifier) inTimeRange() bool {
 
 // GinHandler godoc
 func (d *Dehumidifier) GinHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, *d)
+	c.JSON(http.StatusOK, d)
 }

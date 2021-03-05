@@ -7,8 +7,7 @@ import (
 
 // Actionable is an interface to react on change event
 type Actionable interface {
-	IsEnabled() bool
-	GetName() string
+	Automate
 	GetEntitiesForTrigger() []model.HassEntity
 	GetEventTypesForTrigger() []string
 	Trigger(e *model.HassEvent)
