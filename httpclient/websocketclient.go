@@ -61,7 +61,12 @@ type webSocketClient struct {
 
 	// requestsTracker keeps track of requests sent to the server waiting for a result
 	requestsTracker WebSocketRequestsTracker
-	authenticated   bool
+
+	mutexAuthenticated sync.Mutex
+	authenticated      bool
+
+	mutexConnected sync.Mutex
+	connected      bool
 
 	// started indicates whether or not runnable is started
 	mutexStopStart sync.Mutex
@@ -103,8 +108,9 @@ func (c *webSocketClient) mustConnect(retryEvery time.Duration) {
 	var err error
 
 	// forcing connection to close
+	c.setConnected(false)
 	c.closeConn()
-	c.authenticated = false
+	c.SetAuthenticated(false)
 	atomic.StoreUint64(&c.id, 0)
 
 	for {
@@ -115,6 +121,7 @@ func (c *webSocketClient) mustConnect(retryEvery time.Duration) {
 		c.conn, _, _, err = ws.DefaultDialer.Dial(context.Background(), c.URL.String())
 		c.mutexConn.Unlock()
 		if err == nil {
+			c.setConnected(true)
 			l.Info().
 				Str("url", c.URL.String()).
 				Msg("Connection established")
@@ -122,7 +129,9 @@ func (c *webSocketClient) mustConnect(retryEvery time.Duration) {
 			c.mutexEventsSubscribed.Lock()
 			defer c.mutexEventsSubscribed.Unlock()
 			for _, e := range c.EventsSubscribed {
-				c.EnqueueRequest(NewWebSocketRequest(e))
+				if !c.requestsTracker.IsInProgress(e.GetID()) {
+					c.EnqueueRequest(NewWebSocketRequest(e))
+				}
 			}
 			return
 		}
@@ -218,6 +227,9 @@ func (c *webSocketClient) SubscribeEvents(eventTypes ...string) {
 	c.mutexEventsSubscribed.Lock()
 	defer c.mutexEventsSubscribed.Unlock()
 
+	l := logging.NewLogger("webSocketClient.SubscribeEvents")
+	l.Trace().Strs("event_types", eventTypes).Msg("Subscribing to events")
+
 	if c.EventsSubscribed == nil {
 		c.EventsSubscribed = make(map[uint64]model.HassEventSubscription, 0)
 	}
@@ -230,12 +242,14 @@ func (c *webSocketClient) SubscribeEvents(eventTypes ...string) {
 		}
 
 		c.EventsSubscribed[sub.GetID()] = sub
-		c.EnqueueRequest(NewWebSocketRequest(sub))
+		if c.Connected() { // Don't enqueue if not connected because mustConnect will do it
+			c.EnqueueRequest(NewWebSocketRequest(sub))
+		}
 	}
 }
 
 // CallService is a generic function to call any service
-// Deprecated: Might not work, to be debugged
+// TODO Deprecated: Might not work, to be debugged
 func (c *webSocketClient) CallService(entity model.HassEntity, service string) {
 	l := logging.NewLogger("WebSocketClient.CallService")
 	d := model.HassService{
@@ -274,13 +288,12 @@ func (c *webSocketClient) requeueRequest(req *WebSocketRequest, after time.Durat
 func (c *webSocketClient) workerRequestsHandler() {
 	funcLogger := logging.NewLogger("WebSocketClient.workerRequestsHandler")
 
-	running := true
-	// Wait for message on the channel
-	for running {
+loop:
+	for {
 		select {
 		case <-c.workerRequestsHandlerStop:
 			funcLogger.Trace().Msg("Stopping workerRequestsHandler routine")
-			running = false
+			break loop
 		case request := <-c.requestChannel:
 			// Creating logger for this request
 			l := funcLogger.With().
@@ -288,16 +301,20 @@ func (c *webSocketClient) workerRequestsHandler() {
 				Str("type", request.Data.GetType()).
 				Logger()
 
-			if !c.authenticated && !strings.HasPrefix(request.Data.GetType(), "auth") {
-				// not authenticated yet, requeue
-				l.Debug().Msg("Not authenticated yet, requeuing request")
-				c.requeueRequest(request, 1*time.Second)
+			// Track the request
+			request.LastUpdateTime = time.Now()
+			c.requestsTracker.InProgress(request)
+
+			if !GetSimpleClient().CheckServerAPIHealth() {
+				l.Warn().Msg("Server is unavailable, requeuing")
+				c.requeueRequest(request, 2*time.Second)
 				continue
 			}
 
-			if c.authenticated && !GetSimpleClient().CheckServerAPIHealth() {
-				l.Warn().Msg("Server is unavailable, requeuing")
-				c.requeueRequest(request, 2*time.Second)
+			if !c.Authenticated() && !strings.HasPrefix(request.Data.GetType(), "auth") {
+				// not authenticated yet, requeue
+				l.Debug().Msg("Not authenticated yet, requeuing request")
+				c.requeueRequest(request, 1*time.Second)
 				continue
 			}
 
@@ -309,16 +326,13 @@ func (c *webSocketClient) workerRequestsHandler() {
 
 			l.Info().Msg("Processing request")
 			data, _ := json.Marshal(request.Data)
-			l.Trace().Msg("Sending request to the websocket server")
+			l.Trace().Bytes("data", data).Msg("Sending request to the websocket server")
 			err := wsutil.WriteServerMessage(c.conn, ws.OpText, data)
 			if err != nil {
 				l.Error().Err(err).Msg("Error sending request to the server, requeuing")
 				c.EnqueueRequest(request)
+				continue
 			}
-
-			// Track the request
-			request.LastUpdateTime = time.Now()
-			c.requestsTracker.InProgress(request.Data.GetID(), request)
 		}
 	} // for running
 
@@ -329,13 +343,12 @@ func (c *webSocketClient) workerDaemon() {
 	l := logging.NewLogger("WebSocketClient.workerDaemon")
 
 	defer c.recoverDisconnection() // calling that when wsutil.ReadServerData panics
-	running := true
-	for running {
+loop:
+	for {
 		select {
 		case <-c.workerDaemonStop:
 			l.Trace().Msg("Stopping workerDaemon routine")
-			running = false
-			continue
+			break loop
 		default: // Avoid vscode complaining about unreachable code below
 		}
 
@@ -402,11 +415,6 @@ func (c *webSocketClient) workerDaemon() {
 	l.Trace().Msg("workerDaemon stopped")
 }
 
-// Authenticated returns true if already authenticated, false otherwise
-func (c *webSocketClient) Authenticated() bool {
-	return c.authenticated
-}
-
 func (c *webSocketClient) closeConn() {
 	c.mutexConn.Lock()
 	defer c.mutexConn.Unlock()
@@ -421,28 +429,34 @@ func (c *webSocketClient) handleResult(data model.HassAPIObject) {
 	l := logging.NewLogger("WebSocketClient.handleResult")
 
 	result := data.(*model.HassResult)
+	req := c.requestsTracker.Done(result.GetID())
+
 	if result.Success {
 		l.Debug().
 			Uint64("id", result.GetID()).
 			Msg("Success result received for request")
+		return
 	}
 
-	req := c.requestsTracker.Done(result.GetID())
-	if !result.Success {
-		after := 3 * time.Second
-		if result.Error.Code == ErrorCodeIDReuse || result.Error.Code == ErrorInvalidFormat {
-			after = 10 * time.Millisecond // retry sooner than later
-			req.Data = req.Data.Duplicate(c.NextMessageID())
-		}
-
-		l.Debug().
-			Uint64("id", result.GetID()).
-			Str("error_code", result.Error.Code).
-			Str("error_message", result.Error.Message).
-			Msgf("Failed result received for request, requeuing in %s", after.String())
-
-		c.requeueRequest(req, after)
+	if req == nil {
+		l.Warn().Msg("Result is failed but request is nil, cannot requeue")
+		return
 	}
+
+	// Not successful
+	after := 3 * time.Second
+	if result.Error.Code == ErrorCodeIDReuse || result.Error.Code == ErrorInvalidFormat {
+		after = 10 * time.Millisecond // retry sooner than later
+		req.Data = req.Data.Duplicate(c.NextMessageID())
+	}
+
+	l.Debug().
+		Uint64("id", result.GetID()).
+		Str("error_code", result.Error.Code).
+		Str("error_message", result.Error.Message).
+		Msgf("Failed result received for request, requeuing in %s", after.String())
+
+	c.requeueRequest(req, after)
 }
 
 func (c *webSocketClient) handleAuthRequired(data model.HassAPIObject) {
@@ -458,7 +472,7 @@ func (c *webSocketClient) handleAuthOK(data model.HassAPIObject) {
 	l.Info().
 		Str("type", data.GetType()).
 		Msgf("Message received from server")
-	c.authenticated = true
+	c.SetAuthenticated(true)
 }
 
 func (c *webSocketClient) handleAuthInvalid(data model.HassAPIObject) {
@@ -468,8 +482,33 @@ func (c *webSocketClient) handleAuthInvalid(data model.HassAPIObject) {
 		Err(fmt.Errorf(result.Message)).
 		Str("type", result.GetType()).
 		Msgf("Message received from server, cannot continue")
-	c.authenticated = false
+	c.SetAuthenticated(false)
 	c.Stop()
+}
+
+// Authenticated returns true if already authenticated, false otherwise
+func (c *webSocketClient) Authenticated() bool {
+	c.mutexAuthenticated.Lock()
+	defer c.mutexAuthenticated.Unlock()
+	return c.authenticated
+}
+
+func (c *webSocketClient) SetAuthenticated(b bool) {
+	c.mutexAuthenticated.Lock()
+	defer c.mutexAuthenticated.Unlock()
+	c.authenticated = b
+}
+
+func (c *webSocketClient) Connected() bool {
+	c.mutexConnected.Lock()
+	defer c.mutexConnected.Unlock()
+	return c.connected
+}
+
+func (c *webSocketClient) setConnected(b bool) {
+	c.mutexConnected.Lock()
+	defer c.mutexConnected.Unlock()
+	c.connected = b
 }
 
 // GetName returns the name of this runnable object

@@ -34,6 +34,8 @@ var (
 	TriggerHarmony = "harmony"
 	// TriggerCalendarLights set to on or off lights based on calendar events
 	TriggerCalendarLights = "calendarLights"
+	// TriggerHeaterCheckersDisabler globally disables heaters' automatic programmation
+	TriggerHeaterCheckersDisabler = "heaterCheckersDisabler"
 )
 
 var (
@@ -88,9 +90,7 @@ func initHTTPClients(config *config.Gotomation) {
 
 	// Adding callbacks for server communication, start and subscribe to events
 	httpclient.GetWebSocketClient().RegisterCallback("event", EventCallback, model.HassEvent{})
-	for _, sub := range config.HomeAssistant.SubscribeEvents {
-		httpclient.GetWebSocketClient().SubscribeEvents(sub)
-	}
+	httpclient.GetWebSocketClient().SubscribeEvents(config.HomeAssistant.SubscribeEvents...)
 }
 
 func initGoogle(config *config.Gotomation) {
@@ -121,6 +121,8 @@ func initTriggers(config *config.Gotomation) {
 			var action core.Actionable
 
 			switch triggerName {
+			case TriggerHeaterCheckersDisabler:
+				action = new(triggers.HeaterCheckersDisabler)
 			case TriggerDehumidifier:
 				action = new(triggers.Dehumidifier)
 			case TriggerHarmony:

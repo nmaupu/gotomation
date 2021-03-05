@@ -138,12 +138,12 @@ func (h *Heater) printDebugSchedules() {
 // GinHandler godoc
 func (h *Heater) GinHandler(c *gin.Context) {
 	obj := struct {
-		core.Module
+		*core.Module
 		Name          string
 		SchedulesFile string
 		Schedules     core.HeaterSchedules
 	}{
-		Module:        h.Module,
+		Module:        &h.Module,
 		Name:          h.Name,
 		SchedulesFile: h.SchedulesFile,
 		Schedules:     *h.schedules,
