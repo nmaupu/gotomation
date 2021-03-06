@@ -45,6 +45,7 @@ func (c *Checker) Start() error {
 
 	app.RoutinesWG.Add(1)
 	go func() {
+		l := logging.NewLogger("Checker.Start")
 		defer app.RoutinesWG.Done()
 		interval := DefaultInterval
 		if c.Module.GetInterval() > 0 {
@@ -64,12 +65,17 @@ func (c *Checker) Start() error {
 			}
 		}
 
-		for c.Module.IsEnabled() {
+		for {
 			select {
 			case <-c.stop:
 				return
 			case <-ticker.C:
-				c.Module.Check()
+				if c.Module.IsEnabled() {
+					l.Trace().Msgf("Checker %s is enabled, calling Check()", c.Module.GetName())
+					c.Module.Check()
+				} else {
+					l.Trace().Msgf("Checker %s is disabled, doing nothing", c.Module.GetName())
+				}
 			}
 		}
 	}()

@@ -1,4 +1,4 @@
-package triggers
+package smarthome
 
 import (
 	"net/http"
@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	_ core.Actionable = (*Harmony)(nil)
+	_ core.Actionable = (*HarmonyTrigger)(nil)
 )
 
 const (
@@ -20,8 +20,8 @@ const (
 	offsetDusk = -15 * time.Minute
 )
 
-// Harmony checks for harmony remote button press and takes action accordingly
-type Harmony struct {
+// HarmonyTrigger checks for harmony remote button press and takes action accordingly
+type HarmonyTrigger struct {
 	core.Action `mapstructure:",squash"`
 	WorkActions []workAction `mapstructure:"work_actions"`
 }
@@ -47,7 +47,7 @@ type command struct {
 }
 
 // Trigger godoc
-func (h *Harmony) Trigger(event *model.HassEvent) {
+func (h *HarmonyTrigger) Trigger(event *model.HassEvent) {
 	l := logging.NewLogger("Harmony.Trigger")
 
 	if event == nil {
@@ -97,7 +97,7 @@ func (h *Harmony) Trigger(event *model.HassEvent) {
 	}
 }
 
-func (h *Harmony) getWorkAction(key string) *workAction {
+func (h *HarmonyTrigger) getWorkAction(key string) *workAction {
 	for _, wa := range h.WorkActions {
 		if key == wa.Key {
 			return &wa
@@ -108,6 +108,6 @@ func (h *Harmony) getWorkAction(key string) *workAction {
 }
 
 // GinHandler godoc
-func (h *Harmony) GinHandler(c *gin.Context) {
+func (h *HarmonyTrigger) GinHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, *h)
 }
