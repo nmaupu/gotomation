@@ -1,4 +1,4 @@
-package checkers
+package smarthome
 
 import (
 	"errors"
@@ -15,15 +15,15 @@ import (
 )
 
 var (
-	_ (core.Modular) = (*Internet)(nil)
+	_ (core.Modular) = (*InternetChecker)(nil)
 )
 
 const (
 	defaultRebootEveryMin = 300 * time.Second
 )
 
-// Internet module pings a host at a regular interval and restart the internet box if it fails
-type Internet struct {
+// InternetChecker module pings a host at a regular interval and restart the internet box if it fails
+type InternetChecker struct {
 	core.Module `mapstructure:",squash"`
 	// PingHost is the host to ping
 	PingHost string `mapstructure:"ping_host"`
@@ -36,7 +36,7 @@ type Internet struct {
 }
 
 // Check runs a single check
-func (c *Internet) Check() {
+func (c *InternetChecker) Check() {
 	l := logging.NewLogger("InternetChecker.Check")
 	if c.MaxRebootEvery == 0 {
 		c.MaxRebootEvery = defaultRebootEveryMin
@@ -80,6 +80,6 @@ func (c *Internet) Check() {
 }
 
 // GinHandler godoc
-func (c *Internet) GinHandler(ctx *gin.Context) {
+func (c *InternetChecker) GinHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, *c)
 }

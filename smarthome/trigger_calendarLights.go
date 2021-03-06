@@ -1,4 +1,4 @@
-package triggers
+package smarthome
 
 import (
 	"encoding/json"
@@ -14,11 +14,11 @@ import (
 )
 
 var (
-	_ (core.Actionable) = (*CalendarLights)(nil)
+	_ (core.Actionable) = (*CalendarLightsTrigger)(nil)
 )
 
-// CalendarLights checks calendar for new events once in a while
-type CalendarLights struct {
+// CalendarLightsTrigger checks calendar for new events once in a while
+type CalendarLightsTrigger struct {
 	core.Action `mapstructure:",squash"`
 	Cals        []struct {
 		Name string `mapstructure:"name"`
@@ -27,7 +27,7 @@ type CalendarLights struct {
 }
 
 // Trigger godoc
-func (c *CalendarLights) Trigger(event *model.HassEvent) {
+func (c *CalendarLightsTrigger) Trigger(event *model.HassEvent) {
 	var err error
 	l := logging.NewLogger("CalendarLights.Trigger").With().EmbedObject(event).Logger()
 
@@ -66,6 +66,6 @@ func (c *CalendarLights) Trigger(event *model.HassEvent) {
 }
 
 // GinHandler godoc
-func (c *CalendarLights) GinHandler(ctx *gin.Context) {
+func (c *CalendarLightsTrigger) GinHandler(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, *c)
 }

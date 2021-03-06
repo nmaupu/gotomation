@@ -1,4 +1,4 @@
-package triggers
+package smarthome
 
 import (
 	"net/http"
@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	_ core.Actionable = (*Dehumidifier)(nil)
+	_ core.Actionable = (*DehumidifierTrigger)(nil)
 )
 
-// Dehumidifier checks for humidity and activate/deactivate a dehumidifier
-type Dehumidifier struct {
+// DehumidifierTrigger checks for humidity and activate/deactivate a dehumidifier
+type DehumidifierTrigger struct {
 	core.Action `mapstructure:",squash"`
 	// SwitchEntity is the entity used to switch on / off the dehumidifier
 	SwitchEntity model.HassEntity `mapstructure:"switch_entity"`
@@ -34,7 +34,7 @@ type Dehumidifier struct {
 }
 
 // Trigger godoc
-func (d *Dehumidifier) Trigger(event *model.HassEvent) {
+func (d *DehumidifierTrigger) Trigger(event *model.HassEvent) {
 	l := logging.NewLogger("DehumidifierTrigger.Trigger")
 	if event == nil {
 		return
@@ -120,7 +120,7 @@ func (d *Dehumidifier) Trigger(event *model.HassEvent) {
 }
 
 // inTimeRange checks if current time is between TimeBeg and TimeEnd
-func (d *Dehumidifier) inTimeRange() bool {
+func (d *DehumidifierTrigger) inTimeRange() bool {
 	now := time.Now()
 	beg := time.Date(now.Year(), now.Month(), now.Day(), d.TimeBeg.Hour(), d.TimeBeg.Minute(), d.TimeBeg.Second(), 0, time.Local)
 	end := time.Date(now.Year(), now.Month(), now.Day(), d.TimeEnd.Hour(), d.TimeEnd.Minute(), d.TimeEnd.Second(), 0, time.Local)
@@ -128,6 +128,6 @@ func (d *Dehumidifier) inTimeRange() bool {
 }
 
 // GinHandler godoc
-func (d *Dehumidifier) GinHandler(c *gin.Context) {
+func (d *DehumidifierTrigger) GinHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, d)
 }

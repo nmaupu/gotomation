@@ -74,7 +74,6 @@ func (w *fileWatcher) Start() error {
 			l.Error().Err(err).Send()
 		}
 
-	loop:
 		for {
 			select {
 			case event := <-w.Watcher.Events:
@@ -97,7 +96,7 @@ func (w *fileWatcher) Start() error {
 			case err := <-w.Watcher.Errors:
 				l.Error().Err(err).Msg("An error occurred watching file")
 			case <-w.stopChan:
-				break loop
+				return
 			}
 		}
 	}()

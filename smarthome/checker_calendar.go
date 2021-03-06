@@ -1,4 +1,4 @@
-package checkers
+package smarthome
 
 import (
 	"time"
@@ -10,11 +10,11 @@ import (
 )
 
 var (
-	_ (core.Modular) = (*Calendar)(nil)
+	_ (core.Modular) = (*CalendarChecker)(nil)
 )
 
-// Calendar checks calendar for new events once in a while
-type Calendar struct {
+// CalendarChecker checks calendar for new events once in a while
+type CalendarChecker struct {
 	core.Module `mapstructure:",squash"`
 	Cals        []struct {
 		Name string `mapstructure:"name"`
@@ -23,7 +23,7 @@ type Calendar struct {
 }
 
 // Check runs a single check
-func (c *Calendar) Check() {
+func (c *CalendarChecker) Check() {
 	l := logging.NewLogger("CalendarLights.Trigger")
 
 	client, err := thirdparty.GetGoogleConfig().GetClient()

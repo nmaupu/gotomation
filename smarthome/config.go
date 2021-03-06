@@ -15,8 +15,6 @@ import (
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/routines"
-	"github.com/nmaupu/gotomation/smarthome/checkers"
-	"github.com/nmaupu/gotomation/smarthome/triggers"
 	"github.com/nmaupu/gotomation/thirdparty"
 	"google.golang.org/api/calendar/v3"
 )
@@ -40,7 +38,7 @@ var (
 
 var (
 	// mutex is used to lock maps' access by one goroutine only
-	mutex     sync.Mutex
+	mutex     sync.RWMutex
 	mCheckers map[string][]core.Checkable
 	mTriggers map[string][]core.Triggerable
 	crontab   core.Crontab
@@ -122,13 +120,13 @@ func initTriggers(config *config.Gotomation) {
 
 			switch triggerName {
 			case TriggerHeaterCheckersDisabler:
-				action = new(triggers.HeaterCheckersDisabler)
+				action = new(HeaterCheckersDisablerTrigger)
 			case TriggerDehumidifier:
-				action = new(triggers.Dehumidifier)
+				action = new(DehumidifierTrigger)
 			case TriggerHarmony:
-				action = new(triggers.Harmony)
+				action = new(HarmonyTrigger)
 			case TriggerCalendarLights:
-				action = new(triggers.CalendarLights)
+				action = new(CalendarLightsTrigger)
 			default:
 				l.Warn().
 					Str("trigger", triggerName).
@@ -174,11 +172,11 @@ func initCheckers(config *config.Gotomation) {
 
 			switch moduleName {
 			case ModuleInternetChecker:
-				module = new(checkers.Internet)
+				module = new(InternetChecker)
 			case ModuleCalendarChecker:
-				module = new(checkers.Calendar)
+				module = new(CalendarChecker)
 			case ModuleHeaterChecker:
-				module = new(checkers.Heater)
+				module = new(HeaterChecker)
 			default:
 				l.Error().Err(fmt.Errorf("Cannot find module")).
 					Str("module", moduleName).
@@ -261,8 +259,8 @@ func initHTTPServer(config *config.Gotomation) {
 // EventCallback is called when a listen event occurs
 func EventCallback(msg model.HassAPIObject) {
 	l := logging.NewLogger("EventCallback")
-	mutex.Lock()
-	defer mutex.Unlock()
+	mutex.RLock()
+	defer mutex.RUnlock()
 
 	if mTriggers == nil || len(mTriggers) == 0 {
 		return
@@ -323,4 +321,13 @@ func triggerGinHandler(c *gin.Context) {
 	}
 
 	c.AbortWithStatusJSON(http.StatusNotFound, model.NewAPIError(fmt.Errorf("Unable to find trigger %s", name)))
+}
+
+// GetCheckersByType returns all checkers corresponding to a given name
+func GetCheckersByType(name string) []core.Checkable {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	// As long as return value is a slice copy of interfaces,
+	// we should be doing ok thread safe wise
+	return mCheckers[name]
 }

@@ -1,7 +1,8 @@
-package checkers
+package smarthome
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -10,21 +11,24 @@ import (
 	"github.com/nmaupu/gotomation/core"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/logging"
+	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/routines"
 )
 
 const (
+	// DefaultEcoTemp is the default eco temperature when not set in the config file
+	DefaultEcoTemp           = float64(15)
 	temperatureAttributeName = "temperature"
 	setTemperatureService    = "set_temperature"
 )
 
 var (
-	_ (core.Modular) = (*Heater)(nil)
+	_ (core.Modular) = (*HeaterChecker)(nil)
 )
 
-// Heater sets the heater's thermostat based on schedules
-type Heater struct {
+// HeaterChecker sets the heater's thermostat based on schedules
+type HeaterChecker struct {
 	core.Module   `mapstructure:",squash"`
 	SchedulesFile string `mapstructure:"schedules_file"`
 
@@ -34,7 +38,7 @@ type Heater struct {
 }
 
 // Check runs a single check
-func (h *Heater) Check() {
+func (h *HeaterChecker) Check() {
 	l := logging.NewLogger("Heater.Check").With().Str("module", h.GetName()).Logger()
 
 	// Initial configuration and config change handling
@@ -105,7 +109,7 @@ func (h *Heater) Check() {
 	}
 }
 
-func (h *Heater) initSchedulesConfig() error {
+func (h *HeaterChecker) initSchedulesConfig() error {
 	if h.schedules != nil {
 		return nil
 	}
@@ -130,13 +134,47 @@ func (h *Heater) initSchedulesConfig() error {
 	return h.configFileWatcher.Start()
 }
 
-func (h *Heater) printDebugSchedules() {
+func (h *HeaterChecker) printDebugSchedules() {
 	l := logging.NewLogger("Heater.printDebugSchedules").With().Str("filename", h.SchedulesFile).Logger()
 	l.Debug().EmbedObject(h.schedules).Msg("Reloading heater's config")
 }
 
+// GetDefaultEcoTemp returns the
+func (h *HeaterChecker) GetDefaultEcoTemp() float64 {
+	h.configMutex.Lock()
+	defer h.configMutex.Unlock()
+	if h.schedules == nil {
+		return DefaultEcoTemp
+	}
+	return h.schedules.DefaultEco
+}
+
+var (
+	errNoEntity = fmt.Errorf("No entity configured")
+)
+
+// GetClimateEntity returns the climate entity attached to the Heater's schedules object
+func (h *HeaterChecker) GetClimateEntity() (model.HassEntity, error) {
+	h.configMutex.Lock()
+	defer h.configMutex.Unlock()
+	if h.schedules == nil {
+		return model.HassEntity{}, errNoEntity
+	}
+	return h.schedules.Thermostat, nil
+}
+
+// GetManualOverrideEntity returns the manual override entity attached to the Heater's schedules object
+func (h *HeaterChecker) GetManualOverrideEntity() (model.HassEntity, error) {
+	h.configMutex.Lock()
+	defer h.configMutex.Unlock()
+	if h.schedules == nil {
+		return model.HassEntity{}, errNoEntity
+	}
+	return h.schedules.ManualOverride, nil
+}
+
 // GinHandler godoc
-func (h *Heater) GinHandler(c *gin.Context) {
+func (h *HeaterChecker) GinHandler(c *gin.Context) {
 	obj := struct {
 		*core.Module
 		Name          string
