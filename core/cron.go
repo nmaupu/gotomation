@@ -84,7 +84,7 @@ type CronEntry struct {
 func (c *CronEntry) Configure(data interface{}, i interface{}) error {
 	l := logging.NewLogger("CronEntry.Configure")
 
-	err := config.NewMapStructureDecoder(c).Decode(data)
+	err := config.NewMapstructureDecoder(c).Decode(data)
 	if err != nil {
 		return err
 	}

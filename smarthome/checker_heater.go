@@ -21,6 +21,8 @@ const (
 	DefaultEcoTemp           = float64(15)
 	temperatureAttributeName = "temperature"
 	setTemperatureService    = "set_temperature"
+	climateTurnOffService    = "turn_off"
+	climateTurnOnService     = "turn_on"
 )
 
 var (
@@ -61,7 +63,7 @@ func (h *HeaterChecker) Check() {
 	defer h.configMutex.Unlock()
 
 	if h.schedules == nil {
-		l.Error().Err(errors.New("Heater's schedules are not set")).Msg("Unable to Check heater")
+		l.Error().Err(errors.New("heater's schedules are not set")).Msg("Unable to Check heater")
 		return
 	}
 
@@ -80,6 +82,30 @@ func (h *HeaterChecker) Check() {
 	if err != nil {
 		l.Error().Err(err).Msg("Unable to get current thermostat temperature")
 		return
+	}
+
+	// Checking for dates first
+	now := time.Now()
+	if h.schedules.DateBegin.Before(now) && h.schedules.DateEnd.After(now) {
+		l.Debug().
+			Time("current", now).
+			Time("begin_date", time.Time(h.schedules.DateBegin)).
+			Time("end_date", time.Time(h.schedules.DateEnd)).
+			Msg("Current date is between begin and end, nothing to do")
+		// Ensuring heater climate is off
+		if err := httpclient.GetSimpleClient().CallService(climateEntity, climateTurnOffService, map[string]interface{}{}); err != nil {
+			l.Warn().Err(err).
+				Str("entity", climateEntity.GetEntityIDFullName()).
+				Msg("Cannot turn off climate")
+		}
+		return
+	}
+
+	// Ensuring climate is on
+	if err := httpclient.GetSimpleClient().CallService(climateEntity, climateTurnOnService, map[string]interface{}{}); err != nil {
+		l.Warn().Err(err).
+			Str("entity", climateEntity.GetEntityIDFullName()).
+			Msg("Cannot turn on climate, continuing anyway")
 	}
 
 	// Computing correct temperature depending on time
