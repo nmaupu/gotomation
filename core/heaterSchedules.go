@@ -173,6 +173,8 @@ func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
 
 // MarshalZerologObject godoc
 func (c *HeaterSchedules) MarshalZerologObject(event *zerolog.Event) {
+	event.Time("date_begin", time.Time(c.DateBegin))
+	event.Time("date_end", time.Time(c.DateEnd))
 	for schedName, s := range c.Scheds {
 		for idx, sched := range s {
 			event = event.Object(fmt.Sprintf("%s[%d]", schedName, idx), sched)
