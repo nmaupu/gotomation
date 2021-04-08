@@ -86,12 +86,12 @@ func (h *HeaterChecker) Check() {
 
 	// Checking for dates first
 	now := time.Now()
-	if h.schedules.DateBegin.Before(now) && h.schedules.DateEnd.After(now) {
+	if h.schedules.DateBegin.After(now) && h.schedules.DateEnd.Before(now) {
 		l.Debug().
 			Time("current", now).
 			Time("begin_date", time.Time(h.schedules.DateBegin)).
 			Time("end_date", time.Time(h.schedules.DateEnd)).
-			Msg("Current date is between begin and end, nothing to do")
+			Msg("Current date is NOT between begin and end, nothing to do")
 		// Ensuring heater climate is off
 		if err := httpclient.GetSimpleClient().CallService(climateEntity, climateTurnOffService, map[string]interface{}{}); err != nil {
 			l.Warn().Err(err).
@@ -99,6 +99,12 @@ func (h *HeaterChecker) Check() {
 				Msg("Cannot turn off climate")
 		}
 		return
+	} else {
+		l.Debug().
+			Time("current", now).
+			Time("begin_date", time.Time(h.schedules.DateBegin)).
+			Time("end_date", time.Time(h.schedules.DateEnd)).
+			Msg("Current date is between begin and end, configuring heaters following schedules")
 	}
 
 	// Ensuring climate is on
@@ -176,7 +182,7 @@ func (h *HeaterChecker) GetDefaultEcoTemp() float64 {
 }
 
 var (
-	errNoEntity = fmt.Errorf("No entity configured")
+	errNoEntity = fmt.Errorf("no entity configured")
 )
 
 // GetClimateEntity returns the climate entity attached to the Heater's schedules object
