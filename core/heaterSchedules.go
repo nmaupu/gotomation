@@ -43,6 +43,8 @@ type HeaterSchedules struct {
 	DefaultEco     float64                            `mapstructure:"default_eco"`
 	ManualOverride model.HassEntity                   `mapstructure:"manual_override"`
 	Thermostat     model.HassEntity                   `mapstructure:"thermostat"`
+	DateBegin      model.DayMonthDate                 `mapstructure:"date_begin"`
+	DateEnd        model.DayMonthDate                 `mapstructure:"date_end"`
 }
 
 // HeaterSchedule represents a heater's schedule
@@ -112,7 +114,7 @@ func (s SchedulesDays) AsFlag() int {
 func getSliceIdx(s string, sl []string) int {
 	res := -1
 	for k, v := range sl {
-		if strings.ToLower(strings.Trim(s, " ")) == strings.ToLower(v) {
+		if strings.EqualFold(strings.Trim(s, " "), v) {
 			return k
 		}
 	}
@@ -183,7 +185,7 @@ func (c *HeaterSchedules) MarshalZerologObject(event *zerolog.Event) {
 func (c *HeaterSchedules) Configure(data interface{}, i interface{}) error {
 	l := logging.NewLogger("HeaterSchedules.Configure")
 
-	err := config.NewMapStructureDecoder(c).Decode(data)
+	err := config.NewMapstructureDecoder(c).Decode(data)
 	if err != nil {
 		return err
 	}

@@ -83,11 +83,12 @@ func MapstructureDecodeHookFunc() mapstructure.DecodeHookFunc {
 		mapstructure.StringToTimeDurationHookFunc(),
 		mapstructure.StringToTimeHookFunc(TimeLayout),
 		model.StringToHassEntityDecodeHookFunc(),
+		model.StringToDayMonthDateDecodeHookFunc(),
 	)
 }
 
-// NewMapStructureDecoder returns a new mapstructure.Decoder ready to read Gotomation configuration
-func NewMapStructureDecoder(result interface{}) *mapstructure.Decoder {
+// NewMapstructureDecoder returns a new mapstructure.Decoder ready to read Gotomation configuration
+func NewMapstructureDecoder(result interface{}) *mapstructure.Decoder {
 	decoderConfig := &mapstructure.DecoderConfig{
 		DecodeHook: MapstructureDecodeHookFunc(),
 		Result:     result,

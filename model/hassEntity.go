@@ -63,7 +63,7 @@ func (e HassEntity) Equals(entity HassEntity) bool {
 	res := re.MatchString(e.EntityID)
 	l.Trace().
 		Str("entity", e.GetEntityIDFullName()).
-		Str("candidate", fmt.Sprintf(entity.GetEntityIDFullName())).
+		Str("candidate", entity.GetEntityIDFullName()).
 		Bool("response", res).
 		Send()
 
@@ -106,7 +106,7 @@ func StringToHassEntityDecodeHookFunc() mapstructure.DecodeHookFunc {
 		// Convert it
 		toks := strings.Split(data.(string), ".")
 		if len(toks) < 2 {
-			return nil, fmt.Errorf("Unable to parse entity %s", data.(string))
+			return nil, fmt.Errorf("unable to parse entity %s", data.(string))
 		}
 
 		return HassEntity{

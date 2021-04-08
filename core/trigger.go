@@ -26,7 +26,7 @@ func (t *Trigger) Configure(data interface{}, action interface{}) error {
 		return fmt.Errorf("Cannot parse Actionable parameter")
 	}
 
-	err := config.NewMapStructureDecoder(t.Action).Decode(data)
+	err := config.NewMapstructureDecoder(t.Action).Decode(data)
 	if err != nil {
 		return err
 	}

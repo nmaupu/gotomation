@@ -113,7 +113,7 @@ func (c *Checker) Configure(data interface{}, module interface{}) error {
 		return fmt.Errorf("Cannot parse Modular parameter")
 	}
 
-	err := config.NewMapStructureDecoder(c.Module).Decode(data)
+	err := config.NewMapstructureDecoder(c.Module).Decode(data)
 	if err != nil {
 		return err
 	}
