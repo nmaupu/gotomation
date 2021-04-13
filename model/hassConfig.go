@@ -9,8 +9,9 @@ import (
 
 // HassConfig represents a Home Assistant configuration to connect to
 type HassConfig struct {
-	URL   url.URL
-	Token string
+	URL                 url.URL
+	Token               string
+	HealthCheckEntities []HassEntity
 }
 
 // NewHTTPRequest creates a new http request to query Home Assistant's API

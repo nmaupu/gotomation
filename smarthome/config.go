@@ -85,7 +85,7 @@ func initHTTPClients(config *config.Gotomation) {
 	if !config.HomeAssistant.TLSEnabled {
 		simpleClientScheme = "http"
 	}
-	httpclient.InitSimpleClient(simpleClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token)
+	httpclient.InitSimpleClient(simpleClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token, config.HomeAssistant.HealthCheckEntities)
 
 	websocketClientScheme := "wss"
 	if !config.HomeAssistant.TLSEnabled {
