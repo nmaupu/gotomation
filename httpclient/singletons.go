@@ -17,7 +17,7 @@ var (
 )
 
 // InitSimpleClient inits the SimpleClient singleton
-func InitSimpleClient(scheme string, hassHost, hassToken string) {
+func InitSimpleClient(scheme string, hassHost, hassToken string, healthCheckEntities []model.HassEntity) {
 	l := logging.NewLogger("initSimpleClient")
 	mutexSimpleClient.Lock()
 	defer mutexSimpleClient.Unlock()
@@ -25,8 +25,9 @@ func InitSimpleClient(scheme string, hassHost, hassToken string) {
 	l.Debug().Msg("Creating SimpleClient singleton")
 	scs = NewSimpleClient(
 		model.HassConfig{
-			URL:   url.URL{Scheme: scheme, Host: hassHost, Path: "api"},
-			Token: hassToken,
+			URL:                 url.URL{Scheme: scheme, Host: hassHost, Path: "api"},
+			Token:               hassToken,
+			HealthCheckEntities: healthCheckEntities,
 		})
 }
 

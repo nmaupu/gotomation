@@ -102,11 +102,11 @@ func (c *simpleClient) GetEntity(domain string, name string) (model.HassEntity, 
 	}
 
 	if len(entities) == 0 {
-		return model.HassEntity{}, fmt.Errorf("Entity %s.%s not found", domain, name)
+		return model.HassEntity{}, fmt.Errorf("entity %s.%s not found", domain, name)
 	}
 
 	if len(entities) > 1 {
-		return model.HassEntity{}, fmt.Errorf("Too many entities (%d) found for %s.%s", len(entities), domain, name)
+		return model.HassEntity{}, fmt.Errorf("too many entities (%d) found for %s.%s", len(entities), domain, name)
 	}
 
 	return entities[0], nil
@@ -114,10 +114,15 @@ func (c *simpleClient) GetEntity(domain string, name string) (model.HassEntity, 
 
 // CheckServerAPIHealth verifies that the server is started and ready to serve requests (and that database is loaded)
 func (c *simpleClient) CheckServerAPIHealth() bool {
-	// We suppose that if on of those entities are found, server is ready 🤷‍♂️
-	_, err1 := c.GetEntity("light", "escalier_switch")
-	_, err2 := c.GetEntity("light", "poutre_dimmer")
-	return err1 == nil || err2 == nil
+	// Checking each provided entities
+	var err error
+	for _, e := range c.HassConfig.HealthCheckEntities {
+		_, err = c.GetEntity(e.Domain, e.EntityID)
+		if err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // CallService calls a service
@@ -137,10 +142,8 @@ func (c *simpleClient) CallService(entity model.HassEntity, service string, extr
 	params := map[string]interface{}{
 		"entity_id": entity.GetEntityIDFullName(),
 	}
-	if extraParams != nil {
-		for k, v := range extraParams {
-			params[k] = v
-		}
+	for k, v := range extraParams {
+		params[k] = v
 	}
 
 	reqBody, err := json.Marshal(params)
@@ -156,7 +159,7 @@ func (c *simpleClient) CallService(entity model.HassEntity, service string, extr
 	}
 	defer resp.Body.Close()
 
-	if 200 != resp.StatusCode {
+	if resp.StatusCode != 200 {
 		return fmt.Errorf("HTTP response code is not 200, got=%s", resp.Status)
 	}
 

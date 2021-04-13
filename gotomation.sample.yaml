@@ -3,6 +3,9 @@ log_level: debug
 home_assistant:
   host: hass.home.fossar.net:8123
   tls_enabled: true
+  health_check_entities:
+    - light.escalier_switch
+    - light.poutre_dimmer
   subscribe_events:
     - state_changed
     - roku_command
