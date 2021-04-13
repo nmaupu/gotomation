@@ -81,9 +81,17 @@ func StopAndWait() {
 }
 
 func initHTTPClients(config *config.Gotomation) {
-	httpclient.InitSimpleClient(config.HomeAssistant.Host, config.HomeAssistant.Token)
+	simpleClientScheme := "https"
+	if !config.HomeAssistant.TLSEnabled {
+		simpleClientScheme = "http"
+	}
+	httpclient.InitSimpleClient(simpleClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token)
 
-	httpclient.InitWebSocketClient(config.HomeAssistant.Host, config.HomeAssistant.Token)
+	websocketClientScheme := "wss"
+	if !config.HomeAssistant.TLSEnabled {
+		websocketClientScheme = "ws"
+	}
+	httpclient.InitWebSocketClient(websocketClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token)
 	routines.AddRunnable(httpclient.GetWebSocketClient())
 
 	// Adding callbacks for server communication, start and subscribe to events
@@ -178,7 +186,7 @@ func initCheckers(config *config.Gotomation) {
 			case ModuleHeaterChecker:
 				module = new(HeaterChecker)
 			default:
-				l.Error().Err(fmt.Errorf("Cannot find module")).
+				l.Error().Err(fmt.Errorf("cannot find module")).
 					Str("module", moduleName).
 					Send()
 				continue

@@ -17,7 +17,7 @@ var (
 )
 
 // InitSimpleClient inits the SimpleClient singleton
-func InitSimpleClient(hassHost, hassToken string) {
+func InitSimpleClient(scheme string, hassHost, hassToken string) {
 	l := logging.NewLogger("initSimpleClient")
 	mutexSimpleClient.Lock()
 	defer mutexSimpleClient.Unlock()
@@ -25,7 +25,7 @@ func InitSimpleClient(hassHost, hassToken string) {
 	l.Debug().Msg("Creating SimpleClient singleton")
 	scs = NewSimpleClient(
 		model.HassConfig{
-			URL:   url.URL{Scheme: "https", Host: hassHost, Path: "api"},
+			URL:   url.URL{Scheme: scheme, Host: hassHost, Path: "api"},
 			Token: hassToken,
 		})
 }
@@ -38,7 +38,7 @@ func GetSimpleClient() SimpleClient {
 }
 
 // InitWebSocketClient inits the WebSocketClient singleton
-func InitWebSocketClient(hassHost, hassToken string) {
+func InitWebSocketClient(scheme, hassHost, hassToken string) {
 	l := logging.NewLogger("initWebSocketClient")
 
 	mutexWebSocketClient.Lock()
@@ -52,7 +52,7 @@ func InitWebSocketClient(hassHost, hassToken string) {
 	l.Debug().Msg("Creating WebSocketClient singleton")
 	wsc = NewWebSocketClient(
 		model.HassConfig{
-			URL:   url.URL{Scheme: "wss", Host: hassHost, Path: "api/websocket"},
+			URL:   url.URL{Scheme: scheme, Host: hassHost, Path: "api/websocket"},
 			Token: hassToken,
 		})
 }
