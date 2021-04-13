@@ -16,7 +16,6 @@ fmt:
 
 .PHONY: build
 build $(BIN_DIR)/$(BIN_NAME): $(BIN_DIR)
-	# TODO: HTTP /version, /health and maybe other checking stuff
 	env GO111MODULE=on CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) GOARM=$(GOARM) go build -o $(BIN_DIR)/$(BIN_NAME)-$(GOOS)_$(GOARCH)-$(VERSION) $(LDFLAGS)
 
 .PHONY: clean

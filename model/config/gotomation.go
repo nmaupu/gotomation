@@ -57,7 +57,8 @@ func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config G
 		return errors.Wrap(err, "unable to read config file")
 	}
 
-	if err := vi.Unmarshal(&g); err != nil {
+	decodeHooks := viper.DecodeHook(MapstructureDecodeHookFunc())
+	if err := vi.Unmarshal(&g, decodeHooks); err != nil {
 		return errors.Wrap(err, "unable to unmarshal config file")
 	}
 

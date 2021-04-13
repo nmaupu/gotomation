@@ -43,14 +43,17 @@ type WebSocketClient interface {
 }
 
 type webSocketClient struct {
+	// id to use for the next request - has to be declared first
+	// see https://golang.org/pkg/sync/atomic/#pkg-note-BUG
+	// see https://github.com/census-instrumentation/opencensus-go/issues/587
+	id uint64
+
 	model.HassConfig
 	mutexConn             sync.Mutex
 	conn                  net.Conn
 	callbacks             map[string]callback
 	mutexEventsSubscribed sync.Mutex
 	EventsSubscribed      map[uint64]model.HassEventSubscription
-	// id to use for the next request
-	id uint64
 
 	// requestChannel is used to share WebSocketRequest objects between go routines
 	requestChannel chan *WebSocketRequest
