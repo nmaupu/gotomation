@@ -2,6 +2,7 @@ log_level: debug
 
 home_assistant:
   host: hass.home.fossar.net:8123
+  tls_enabled: true
   subscribe_events:
     - state_changed
     - roku_command

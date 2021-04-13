@@ -30,6 +30,7 @@ type Gotomation struct {
 		Token           string   `mapstructure:"token"`
 		SubscribeEvents []string `mapstructure:"subscribe_events"`
 		HomeZoneName    string   `mapstructure:"home_zone_name"`
+		TLSEnabled      bool     `mapstructure:"tls_enabled"`
 	} `mapstructure:"home_assistant"`
 
 	// Modules configuration
@@ -52,15 +53,15 @@ func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config G
 	l := logging.NewLogger("Gotomation.LoadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
 
 	if err := vi.ReadInConfig(); err != nil {
-		return errors.Wrap(err, "Unable to read config file")
+		return errors.Wrap(err, "unable to read config file")
 	}
 
 	if err := vi.Unmarshal(&g); err != nil {
-		return errors.Wrap(err, "Unable to unmarshal config file")
+		return errors.Wrap(err, "unable to unmarshal config file")
 	}
 
 	if !g.Validate() { // On some systems (rpi), reload succeeds but returns an empty object for obscure reasons...
-		return fmt.Errorf("Config is not valid: Home Assistant host and token must be specified")
+		return fmt.Errorf("config is not valid: Home Assistant host and token must be specified")
 	}
 
 	if g.LogLevel != "" {
