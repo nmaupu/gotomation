@@ -51,7 +51,7 @@ type HeaterSchedules struct {
 type HeaterSchedule struct {
 	Beg     time.Time `mapstructure:"beg"`
 	End     time.Time `mapstructure:"end"`
-	Confort float64   `mapstructure:"confort"`
+	Comfort float64   `mapstructure:"comfort"`
 	Eco     float64   `mapstructure:"eco"`
 }
 
@@ -86,7 +86,7 @@ func (c HeaterSchedule) MarshalZerologObject(event *zerolog.Event) {
 	event.
 		Time("beg", c.Beg).
 		Time("end", c.End).
-		Float64("confort", c.Confort).
+		Float64("confort", c.Comfort).
 		Float64("eco", c.Eco)
 }
 
@@ -159,7 +159,7 @@ func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
 		// Configuration applies today
 		for _, sched := range schedules {
 			if sched.IsActive(t) { // in between
-				return sched.Confort
+				return sched.Comfort
 			}
 
 			if t.After(sched.TodayEnd(t.Location())) {
