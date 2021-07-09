@@ -19,7 +19,7 @@ import (
 	"google.golang.org/api/calendar/v3"
 )
 
-var (
+const (
 	// ModuleInternetChecker is a module to check the internet connection
 	ModuleInternetChecker = "internetChecker"
 	// ModuleHeaterChecker is a module to set heater temperature
@@ -34,6 +34,40 @@ var (
 	TriggerCalendarLights = "calendarLights"
 	// TriggerHeaterCheckersDisabler globally disables heaters' automatic programmation
 	TriggerHeaterCheckersDisabler = "heaterCheckersDisabler"
+	// TriggerRandomLights is a module to set on/off lights randomly between a specific time frame
+	TriggerRandomLights = "randomLights"
+)
+
+var (
+	checkers = map[string]func() core.Modular{
+		ModuleInternetChecker: func() core.Modular {
+			return new(InternetChecker)
+		},
+		ModuleHeaterChecker: func() core.Modular {
+			return new(HeaterChecker)
+		},
+		ModuleCalendarChecker: func() core.Modular {
+			return new(CalendarChecker)
+		},
+	}
+
+	triggers = map[string]func() core.Actionable{
+		TriggerDehumidifier: func() core.Actionable {
+			return new(DehumidifierTrigger)
+		},
+		TriggerHarmony: func() core.Actionable {
+			return new(HarmonyTrigger)
+		},
+		TriggerCalendarLights: func() core.Actionable {
+			return new(CalendarLightsTrigger)
+		},
+		TriggerHeaterCheckersDisabler: func() core.Actionable {
+			return new(HeaterCheckersDisablerTrigger)
+		},
+		TriggerRandomLights: func() core.Actionable {
+			return new(RandomLightsTrigger)
+		},
+	}
 )
 
 var (
@@ -44,7 +78,7 @@ var (
 	crontab   core.Crontab
 )
 
-// Init inits modules from configuration
+// Init inits checkers from configuration
 func Init(config config.Gotomation) {
 	l := logging.NewLogger("Init")
 	mutex.Lock()
@@ -124,23 +158,16 @@ func initTriggers(config *config.Gotomation) {
 	for _, trigger := range config.Triggers {
 		for triggerName, triggerConfig := range trigger {
 			trigger := new(core.Trigger)
-			var action core.Actionable
 
-			switch triggerName {
-			case TriggerHeaterCheckersDisabler:
-				action = new(HeaterCheckersDisablerTrigger)
-			case TriggerDehumidifier:
-				action = new(DehumidifierTrigger)
-			case TriggerHarmony:
-				action = new(HarmonyTrigger)
-			case TriggerCalendarLights:
-				action = new(CalendarLightsTrigger)
-			default:
+			// Getting the action from the existing list
+			ftrig, ok := triggers[triggerName]
+			if !ok {
 				l.Warn().
 					Str("trigger", triggerName).
 					Msg("Trigger not found")
 				continue
 			}
+			action := ftrig()
 
 			if err := trigger.Configure(triggerConfig, action); err != nil {
 				l.Error().Err(err).
@@ -165,6 +192,16 @@ func initTriggers(config *config.Gotomation) {
 		Path:     "/trigger/:name",
 		Handlers: []gin.HandlerFunc{triggerGinHandler},
 	})
+
+	// Call all triggers that needs an initialization with a dummy event
+	for _, triggers := range mTriggers {
+		for _, trig := range triggers {
+			if trig.GetActionable().NeedsInitialization() {
+				evt := model.DummyEvent // make a copy before passing a pointer
+				trig.GetActionable().Trigger(&evt)
+			}
+		}
+	}
 }
 
 func initCheckers(config *config.Gotomation) {
@@ -176,21 +213,16 @@ func initCheckers(config *config.Gotomation) {
 	for _, module := range config.Modules {
 		for moduleName, moduleConfig := range module {
 			checker := new(core.Checker)
-			var module core.Modular
 
-			switch moduleName {
-			case ModuleInternetChecker:
-				module = new(InternetChecker)
-			case ModuleCalendarChecker:
-				module = new(CalendarChecker)
-			case ModuleHeaterChecker:
-				module = new(HeaterChecker)
-			default:
-				l.Error().Err(fmt.Errorf("cannot find module")).
+			// Getting the module from the existing list
+			fmod, ok := checkers[moduleName]
+			if !ok {
+				l.Warn().
 					Str("module", moduleName).
-					Send()
+					Msg("Module not found")
 				continue
 			}
+			module := fmod()
 
 			if err := checker.Configure(moduleConfig, module); err != nil {
 				l.Error().Err(err).

@@ -7,6 +7,13 @@ var (
 	_ zerolog.LogObjectMarshaler = (*HassEvent)(nil)
 )
 
+// DummyEvent is used to send an event internally from Gotomation
+var DummyEvent = HassEvent{
+	Event: HassEventContent{
+		EventType: "dummy",
+	},
+}
+
 // HassEvent represents a Home Assistant event
 type HassEvent struct {
 	ID    uint64           `json:"id"`
@@ -80,4 +87,8 @@ func (e HassEvent) MarshalZerologObject(event *zerolog.Event) {
 		Str("event.data.entity_id", e.Event.Data.EntityID).
 		Str("event.data.old_state", e.Event.Data.OldState.State).
 		Str("event.data.new_state", e.Event.Data.NewState.State)
+}
+
+func (e HassEvent) IsDummy() bool {
+	return e.Event.EventType == "dummy"
 }
