@@ -19,6 +19,10 @@ type HassState struct {
 	Context     HassContext            `json:"context"`
 }
 
+func (s HassState) String() string {
+	return strings.ToLower(s.State)
+}
+
 // IsON returns true if State is set to 'on'
 // Is state is not set, state is considered OFF
 func (s HassState) IsON() bool {

@@ -65,7 +65,7 @@ func (c *InternetChecker) Check() {
 			Str("statistics", fmt.Sprintf("%+v", stats)).
 			Msg("Some packet are lost")
 	} else if stats.PacketLoss == 100 && isTimeBetweenRebootOK {
-		l.Error().Err(errors.New("Connection failed")).
+		l.Error().Err(errors.New("connection failed")).
 			Msg("100% packet lost, rebooting router")
 		// Rebooting
 		httpclient.GetSimpleClient().CallService(c.RestartEntity, "turn_off", nil)

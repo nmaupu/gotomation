@@ -37,7 +37,7 @@ func (a *Action) GetEventTypesForTrigger() []string {
 // Trigger godoc
 func (a *Action) Trigger(e *model.HassEvent) {
 	l := logging.NewLogger("Action.Trigger")
-	l.Error().Err(errors.New("Not implemented")).Msg("")
+	l.Error().Err(errors.New("not implemented")).Msg("")
 }
 
 // GinHandler godoc
@@ -48,4 +48,10 @@ func (a *Action) GinHandler(c *gin.Context) {
 // GetName godoc
 func (a *Action) GetName() string {
 	return a.Name
+}
+
+// NeedsInitialization specifies if this Actionable needs to be triggered with a dummy event
+// when program starts (or conf is reloaded)
+func (a *Action) NeedsInitialization() bool {
+	return false
 }

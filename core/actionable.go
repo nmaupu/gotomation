@@ -12,4 +12,7 @@ type Actionable interface {
 	GetEventTypesForTrigger() []string
 	Trigger(e *model.HassEvent)
 	GinHandler(c *gin.Context)
+	// NeedsInitialization specifies if this Actionable needs to be triggered with a dummy event
+	// when program starts (or conf is reloaded)
+	NeedsInitialization() bool
 }
