@@ -148,7 +148,7 @@ func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
 
 	finalTemp := c.DefaultEco
 	// Sorting schedules to get stuff in order (eco temp of the previous time range
-	// is the temperature to set if we are not currently in a "confort" time range)
+	// is the temperature to set if we are not currently in a "comfort" time range)
 	c.Sort()
 	for schedulesDays, schedules := range c.Scheds {
 		if !schedulesDays.IsScheduled(t) { // not schedules for today
