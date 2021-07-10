@@ -19,6 +19,8 @@ var (
 const (
 	offsetDefaultTimeBeginFromSunset = time.Minute * 30
 	defaultNbSlots                   = 3
+	defaultOdds                      = 5
+	defaultRefreshEvery              = 1 * time.Minute
 )
 
 // RandomLightsTrigger checks for humidity and activate/deactivate a dehumidifier
@@ -34,6 +36,9 @@ type RandomLightsTrigger struct {
 	TimeBegin time.Time `mapstructure:"time_begin"`
 	// TimeEnd is the ending time when the lights can be set to on
 	TimeEnd time.Time `mapstructure:"time_end"`
+	// Odds is the probability to turn on a light (P = 1/Odds)
+	Odds         uint32        `mapstructure:"odds"`
+	RefreshEvery time.Duration `mapstructure:"refresh_every"`
 
 	randomLightsRoutine core.RandomLightsRoutine
 }
@@ -94,7 +99,22 @@ func (d *RandomLightsTrigger) init() error {
 		d.NbSlots = defaultNbSlots
 	}
 
-	d.randomLightsRoutine, err = core.NewRandomLightsRoutine(d.Name, d.NbSlots, d.Lights, d.TimeBegin, d.TimeEnd)
+	if d.Odds == 0 {
+		d.Odds = defaultOdds
+	}
+
+	if d.RefreshEvery == 0 {
+		d.RefreshEvery = defaultRefreshEvery
+	}
+
+	d.randomLightsRoutine, err = core.NewRandomLightsRoutine(
+		d.Name,
+		d.NbSlots,
+		d.Lights,
+		d.TimeBegin,
+		d.TimeEnd,
+		d.Odds,
+		d.RefreshEvery)
 	routines.AddRunnable(d.randomLightsRoutine)
 	return err
 }
