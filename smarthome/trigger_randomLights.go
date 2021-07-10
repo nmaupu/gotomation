@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	offsetDefaultTimeBeginFromSunset = time.Minute * 30
+	offsetDefaultTimeBeginFromSunset = -20 * time.Minute
 	defaultNbSlots                   = 3
 	defaultOdds                      = 5
 	defaultRefreshEvery              = 1 * time.Minute
