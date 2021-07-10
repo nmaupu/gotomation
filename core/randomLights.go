@@ -13,17 +13,13 @@ import (
 	"time"
 )
 
-const (
-	Odds = 1 // probability to set a light on (1/Odds chance)
-)
-
 type RandomLightsRoutine interface {
 	routines.Runnable
 	GetName() string
 	GetSlots() uint32
 }
 
-func NewRandomLightsRoutine(name string, slots uint32, lights []model.RandomLight, startTime, endTime time.Time) (RandomLightsRoutine, error) {
+func NewRandomLightsRoutine(name string, slots uint32, lights []model.RandomLight, startTime, endTime time.Time, odds uint32, refreshEvery time.Duration) (RandomLightsRoutine, error) {
 	if name == "" {
 		return nil, fmt.Errorf("name must not be empty")
 	}
@@ -33,11 +29,13 @@ func NewRandomLightsRoutine(name string, slots uint32, lights []model.RandomLigh
 	}
 
 	return &randomLightsRoutine{
-		name:      name,
-		nbSlots:   slots,
-		lights:    lights,
-		startTime: startTime,
-		endTime:   endTime,
+		name:         name,
+		nbSlots:      slots,
+		lights:       lights,
+		startTime:    startTime,
+		endTime:      endTime,
+		odds:         odds,
+		refreshEvery: refreshEvery,
 	}, nil
 }
 
@@ -60,6 +58,10 @@ type randomLightsRoutine struct {
 	startTime time.Time
 	// endTime is the time when stopping to automatically set lights to on/off
 	endTime time.Time
+	// odds configures the chances a light has to be turned on
+	odds uint32
+	// refreshEvery configures the duration between each refresh call
+	refreshEvery time.Duration
 
 	// autoLightsCh stores messages for lights to be set to on if slotsCh are available
 	autoLightsCh chan autoLight
@@ -127,13 +129,30 @@ func (r *randomLightsRoutine) refresh() {
 	// Generate duration depending on the light
 	// send message
 
+	sunrise, _, err := Coords().GetSunriseSunset()
+	if err != nil {
+		l.Error().Err(err).Msg("unable to get sunrise time")
+		return
+	}
+
+	now := time.Now()
+	if !r.CheckTime(now, sunrise) {
+		l.Trace().
+			Time("start", r.startTime).
+			Time("end", r.endTime).
+			Time("sunrise", sunrise).
+			Time("now", now).
+			Msg("Current time is outside of time range, nothing to do")
+		return
+	}
+
 	val := rand.Int()
 	oddLog := l.With().
-		Int("odds", Odds).
+		Uint32("odds", r.odds).
 		Int("rand", val).
-		Int("val%Odds", val%Odds).
+		Int("val%Odds", val%int(r.odds)).
 		Logger()
-	if val%Odds != 0 {
+	if val%int(r.odds) != 0 {
 		oddLog.Debug().Msg("Not setting a light ON")
 		return
 	}
