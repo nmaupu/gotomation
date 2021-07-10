@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -30,6 +31,9 @@ func main() {
 	if gotoFlags.HassToken != "" {
 		gotoConfig.HomeAssistant.Token = gotoFlags.HassToken
 	}
+
+	// Initializing rand package
+	rand.Seed(time.Now().UnixNano())
 
 	// Get config from file
 	vi := viper.New()

@@ -70,7 +70,7 @@ func Coords() Coordinates {
 	return &coords
 }
 
-// StopSunriseSunset stops the sunrise/sunset refresh goroutine
+// Stop stops the sunrise/sunset refresh goroutine
 func (c *coordinates) Stop() {
 	c.mutexStopStart.Lock()
 	defer c.mutexStopStart.Unlock()
@@ -141,7 +141,7 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	now := time.Now().Local()
 
 	if c.mutex == nil {
-		return time.Time{}, time.Time{}, fmt.Errorf("Error, call NewLatitudeLongitude to create Coordinates")
+		return time.Time{}, time.Time{}, fmt.Errorf("call NewLatitudeLongitude to create Coordinates")
 	}
 
 	l := logging.NewLogger("GetSunriseSunset")
@@ -194,4 +194,8 @@ func (c *coordinates) IsDarkNow(offsetDawn, offsetDusk time.Duration) bool {
 // GetName returns the name of this runnable object
 func (c *coordinates) GetName() string {
 	return "Coordinates"
+}
+
+func (c *coordinates) IsAutoStart() bool {
+	return true
 }

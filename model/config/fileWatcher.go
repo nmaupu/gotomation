@@ -169,3 +169,7 @@ func (w *fileWatcher) loadConf() error {
 
 	return err
 }
+
+func (w *fileWatcher) IsAutoStart() bool {
+	return true
+}

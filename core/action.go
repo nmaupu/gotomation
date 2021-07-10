@@ -16,7 +16,7 @@ var (
 // Action is triggered on state change
 type Action struct {
 	automate `mapstructure:",squash"`
-	// Entities triggers events only from specific entities. No filter -> all events arrive
+	// Entities triggers events only from specific lights. No filter -> all events arrive
 	// Use either trigger_entities OR trigger_events
 	Entities []model.HassEntity `mapstructure:"trigger_entities"`
 	// EventTypes triggers events only from specific event type

@@ -77,6 +77,10 @@ func (s *httpService) AddExtraHandlers(getHandlers ...GinConfigHandlers) {
 	}
 }
 
+func (s *httpService) IsAutoStart() bool {
+	return true
+}
+
 // Start starts the HTTP service
 func (s *httpService) Start() error {
 	s.mutexStopStart.Lock()
