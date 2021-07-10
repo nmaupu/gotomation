@@ -27,7 +27,7 @@ commands:
             RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=darwin GOARCH=amd64 make build
       - save_cache:
           name: Saving compiled binary to cache
-          key: release-{{ .Revision }}-{{ .Branch }}
+          key: release-{{ .Revision }}-{{ .Branch }}-{{ .Environment.CIRCLE_TAG }}
           paths:
             - release
 
@@ -43,7 +43,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - release-{{ .Revision }}-{{ .Branch }}
+            - release-{{ .Revision }}-{{ .Branch }}-{{ .Environment.CIRCLE_TAG }}
       - run:
           name: Publish release on Github
           command: |
