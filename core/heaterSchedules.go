@@ -55,25 +55,24 @@ type HeaterSchedule struct {
 	Eco     float64   `mapstructure:"eco"`
 }
 
-func getTodayTime(t time.Time, loc *time.Location) time.Time {
-	now := time.Now()
+func getTodayTime(now time.Time, t time.Time, loc *time.Location) time.Time {
 	return time.Date(now.Year(), now.Month(), now.Day(), t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), loc)
 }
 
 // TodayBeg returns c.Beg time with today's date
-func (c HeaterSchedule) TodayBeg(loc *time.Location) time.Time {
-	return getTodayTime(c.Beg, loc)
+func (c HeaterSchedule) TodayBeg(now time.Time, loc *time.Location) time.Time {
+	return getTodayTime(now, c.Beg, loc)
 }
 
 // TodayEnd returns c.End time with today's date
-func (c HeaterSchedule) TodayEnd(loc *time.Location) time.Time {
-	return getTodayTime(c.End, loc)
+func (c HeaterSchedule) TodayEnd(now time.Time, loc *time.Location) time.Time {
+	return getTodayTime(now, c.End, loc)
 }
 
 // IsActive returns true if given 't' is between c.Beg and c.End
 func (c HeaterSchedule) IsActive(t time.Time) bool {
 	l := logging.NewLogger("HeaterSchedule.IsActive")
-	ret := t.After(c.TodayBeg(t.Location())) && t.Before(c.TodayEnd(t.Location()))
+	ret := t.After(c.TodayBeg(t, t.Location())) && t.Before(c.TodayEnd(t, t.Location()))
 	l.Debug().
 		EmbedObject(c).
 		Bool("ret", ret).
@@ -162,7 +161,7 @@ func (c *HeaterSchedules) GetTemperatureToSet(t time.Time) float64 {
 				return sched.Comfort
 			}
 
-			if t.After(sched.TodayEnd(t.Location())) {
+			if t.After(sched.TodayEnd(t, t.Location())) {
 				finalTemp = sched.Eco
 			}
 		}

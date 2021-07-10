@@ -115,7 +115,7 @@ func (h *HeaterChecker) Check() {
 	}
 
 	// Computing correct temperature depending on time
-	tempToSet := h.schedules.GetTemperatureToSet(time.Now())
+	tempToSet := h.schedules.GetTemperatureToSet(now)
 	currentTemp, ok := (climateEntity.State.Attributes[temperatureAttributeName]).(float64)
 
 	l = l.With().
