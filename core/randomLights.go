@@ -104,7 +104,7 @@ func (r *randomLightsRoutine) Start() error {
 	go func() {
 		defer app.RoutinesWG.Done()
 		l.Debug().Msg("Starting randomLightsRoutine refresh go routine")
-		ticker := time.NewTicker(1 * time.Second)
+		ticker := time.NewTicker(r.refreshEvery)
 		defer ticker.Stop()
 		for {
 			select {
