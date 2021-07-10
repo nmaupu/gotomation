@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/rs/zerolog"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -18,14 +19,20 @@ import (
 )
 
 type gotomationFlags struct {
-	configFile string
-	verbosity  string
+	ConfigFile string
+	Verbosity  string
 	HassToken  string
+	Version    bool
 }
 
 func main() {
 	l := logging.NewLogger("main")
 	gotoFlags := handleFlags()
+
+	if gotoFlags.Version {
+		displayVersionInfo(l)
+		os.Exit(0)
+	}
 
 	gotoConfig := config.Gotomation{}
 	if gotoFlags.HassToken != "" {
@@ -38,8 +45,8 @@ func main() {
 	// Get config from file
 	vi := viper.New()
 	vi.SetConfigType("yaml")
-	vi.SetConfigName(filepath.Base(gotoFlags.configFile))
-	vi.AddConfigPath(filepath.Dir(gotoFlags.configFile))
+	vi.SetConfigName(filepath.Base(gotoFlags.ConfigFile))
+	vi.AddConfigPath(filepath.Dir(gotoFlags.ConfigFile))
 	vi.WatchConfig()
 	vi.OnConfigChange(func(e fsnotify.Event) {
 		l := logging.NewLogger("OnConfigChange")
@@ -55,10 +62,7 @@ func main() {
 	configChange(vi, gotoConfig, loadConfig)
 
 	// Display binary information
-	l.Info().
-		Str("version", app.ApplicationVersion).
-		Str("build_date", app.BuildDate).
-		Msg("Binary compilation info")
+	displayVersionInfo(l)
 
 	// Main loop, ctrl+c or kill -15 to stop
 	interrupt := make(chan os.Signal, 1)
@@ -86,20 +90,28 @@ func loadConfig(config config.Gotomation) {
 	smarthome.Init(config)
 }
 
+func displayVersionInfo(logger zerolog.Logger) {
+	logger.Info().
+		Str("version", app.ApplicationVersion).
+		Str("build_date", app.BuildDate).
+		Msg("Binary compilation info")
+}
+
 func handleFlags() gotomationFlags {
 	l := logging.NewLogger("handleFlags")
 	gotoFlags := gotomationFlags{}
-	flag.StringVarP(&gotoFlags.configFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
-	flag.StringVarP(&gotoFlags.verbosity, "verbosity", "v", "info", "Specify log's verbosity")
+	flag.BoolVar(&gotoFlags.Version, "version", false, "Display Version and exit")
+	flag.StringVarP(&gotoFlags.ConfigFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
+	flag.StringVarP(&gotoFlags.Verbosity, "verbosity", "v", "info", "Specify log's Verbosity")
 	flag.StringVarP(&gotoFlags.HassToken, "token", "t", "", "Specify token to use for Home Assistant API calls")
 
 	flag.Parse()
 
-	if gotoFlags.configFile == "" {
+	if gotoFlags.ConfigFile == "" {
 		l.Fatal().Msg("Configuration file not provided")
 	}
 
-	if err := logging.SetVerbosity(gotoFlags.verbosity); err != nil {
+	if err := logging.SetVerbosity(gotoFlags.Verbosity); err != nil {
 		logging.SetVerbosity("info")
 	}
 
