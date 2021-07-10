@@ -35,6 +35,10 @@ func NewCrontab() Crontab {
 	}
 }
 
+func (c *crontab) IsAutoStart() bool {
+	return true
+}
+
 func (c *crontab) Start() error {
 	c.mutexStopStart.Lock()
 	defer c.mutexStopStart.Unlock()
@@ -77,7 +81,7 @@ func (c *crontab) GetName() string {
 type CronEntry struct {
 	Expr     string             `mapstructure:"expr"`
 	Action   string             `mapstructure:"action"`
-	Entities []model.HassEntity `mapstructure:"entities"`
+	Entities []model.HassEntity `mapstructure:"lights"`
 }
 
 // Configure reads the configuration and returns a new Checkable object

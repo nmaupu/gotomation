@@ -85,7 +85,7 @@ func (c HeaterSchedule) MarshalZerologObject(event *zerolog.Event) {
 	event.
 		Time("beg", c.Beg).
 		Time("end", c.End).
-		Float64("confort", c.Comfort).
+		Float64("comfort", c.Comfort).
 		Float64("eco", c.Eco)
 }
 

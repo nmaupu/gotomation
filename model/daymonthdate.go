@@ -11,7 +11,7 @@ import (
 // DayMonthDate represents a date given the layout day/month or day-month
 type DayMonthDate time.Time
 
-// StringToHeaterDateDecodeHookFunc returns a func to decode a day/month or day-month formatted string into a HeaterDate
+// StringToDayMonthDateDecodeHookFunc returns a func to decode a day/month or day-month formatted string into a HeaterDate
 func StringToDayMonthDateDecodeHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,

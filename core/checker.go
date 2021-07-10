@@ -133,3 +133,7 @@ func (c *Checker) GetName() string {
 func (c *Checker) GetModular() Modular {
 	return c.Module
 }
+
+func (c *Checker) IsAutoStart() bool {
+	return true
+}

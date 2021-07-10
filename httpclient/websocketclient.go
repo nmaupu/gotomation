@@ -518,3 +518,7 @@ func (c *webSocketClient) setConnected(b bool) {
 func (c *webSocketClient) GetName() string {
 	return "WebSocketClient"
 }
+
+func (c *webSocketClient) IsAutoStart() bool {
+	return true
+}

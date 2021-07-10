@@ -18,6 +18,7 @@ type Runnable interface {
 	Stop()
 	GetName() string
 	IsStarted() bool
+	IsAutoStart() bool
 }
 
 // AddRunnable adds Runnable objects to the list
@@ -40,6 +41,10 @@ func StartAllRunnables() {
 	mutex.Lock()
 	defer mutex.Unlock()
 	for _, r := range runnables {
+		if !r.IsAutoStart() { // do not start if isAutoStart is false
+			continue
+		}
+
 		if r.IsStarted() {
 			l.Warn().
 				Str("runnable", r.GetName()).
