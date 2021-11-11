@@ -8,7 +8,7 @@ import (
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/model/config"
 	"github.com/nmaupu/gotomation/routines"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 )
 
 var (
@@ -69,7 +69,8 @@ func (c *crontab) IsStarted() bool {
 }
 
 func (c *crontab) AddFunc(spec string, cmd func()) error {
-	return c.Cron.AddFunc(spec, cmd)
+	_, err := c.Cron.AddFunc(spec, cmd)
+	return err
 }
 
 // GetName returns the name of this runnable object
@@ -102,7 +103,12 @@ func (c *CronEntry) Configure(data interface{}, i interface{}) error {
 // GetActionFunc returns a func to execute when cron time is triggered
 func (c *CronEntry) GetActionFunc() func() {
 	return func() {
+		l := logging.NewLogger("CronEntry.GetActionFunc")
 		for _, entity := range c.Entities {
+			l.Debug().
+				Str("action", c.Action).
+				Object("entity", entity).
+				Msg("Executing cron action for entity")
 			httpclient.GetSimpleClient().CallService(entity, c.Action, nil)
 		}
 	}

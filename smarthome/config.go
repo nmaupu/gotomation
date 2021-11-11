@@ -267,7 +267,11 @@ func initCrons(config *config.Gotomation) {
 			continue
 		}
 
-		crontab.AddFunc(ce.Expr, ce.GetActionFunc())
+		if err := crontab.AddFunc(ce.Expr, ce.GetActionFunc()); err != nil {
+			l.Error().Err(err).
+				Str("expr", ce.Expr).
+				Msg("Unable to add func for cron")
+		}
 	}
 }
 

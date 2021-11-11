@@ -13,7 +13,7 @@ home_assistant:
 
 # This uses github.com/robfig/cron
 crons:
-  - expr: 0 1 0 * * *
+  - expr: 0 1 * * *
     action: turn_off
     entities:
       - input_boolean.override_estrade_dehum
