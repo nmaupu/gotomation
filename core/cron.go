@@ -81,7 +81,7 @@ func (c *crontab) GetName() string {
 type CronEntry struct {
 	Expr     string             `mapstructure:"expr"`
 	Action   string             `mapstructure:"action"`
-	Entities []model.HassEntity `mapstructure:"lights"`
+	Entities []model.HassEntity `mapstructure:"entities"`
 }
 
 // Configure reads the configuration and returns a new Checkable object
