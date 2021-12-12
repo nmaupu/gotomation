@@ -9,8 +9,8 @@ var (
 )
 
 type TelegramSender struct {
-	Token  string `mapstructure:"token"`
-	ChatID int64  `mapstructure:"chat_id"`
+	Token  string `mapstructure:"token" json:"token"`
+	ChatID int64  `mapstructure:"chat_id" json:"chat_id"`
 }
 
 // Send sends a message to Telegram

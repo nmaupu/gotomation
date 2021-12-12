@@ -7,9 +7,9 @@ import (
 
 type SenderConfig struct {
 	// Name of this config
-	Name string `mapstructure:"name"`
+	Name string `mapstructure:"name" json:"name"`
 	// Telegram configures a telegram sender
-	Telegram *messaging.TelegramSender `mapstructure:"telegram"`
+	Telegram *messaging.TelegramSender `mapstructure:"telegram" json:"telegram"`
 }
 
 // GetSender gets the Sender interface depending on what field is set
