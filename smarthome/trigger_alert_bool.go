@@ -9,8 +9,6 @@ import (
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/smarthome/messaging"
 	"net/http"
-	"reflect"
-	"strconv"
 	"strings"
 	"text/template"
 )
@@ -29,11 +27,6 @@ type AlertTriggerBool struct {
 	Sender      string `mapstructure:"sender"`
 	// Templates are the template to use to send notification message
 	Templates map[string]struct {
-		// BoolAttributeKey is the state attribute name used to get real entity state, if not set, using event's state directly
-		// An event is ignored when old state == new state
-		BoolAttributeKey string `mapstructure:"bool_attr_key"`
-		// BoolAttributeValueTrue is the value to compare with to get the actual state
-		BoolAttributeValueTrue string `mapstructure:"bool_attr_val_true"`
 		// MsgTemplate is used to format the message sent
 		MsgTemplate string `mapstructure:"msg_template"`
 	} `mapstructure:"templates"`
@@ -64,13 +57,6 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 		l.Error().Msg("sender does not exist")
 		return
 	}
-
-	/*newState := a.getState(event, true)
-	oldState := a.getState(event, false)
-	if newState == oldState {
-		l.Warn().Msg("Old state and new state are identical, ignoring event")
-		return
-	}*/
 
 	entity := event.Event.Data.EntityID
 
@@ -121,47 +107,6 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 			Err(err).
 			Msg("Error sending message to sender")
 	}
-}
-
-// getState returns the new or old state of the entity
-// When using an input_boolean, state is given by the State field directly
-// When using another type of hardware sensor, state field can be irrelevant and state can be encoded into attributes
-// e.g: Aqara water sensor encodes it in attribute "water_leak" as a boolean
-func (a *AlertTriggerBool) getState(event *model.HassEvent, new bool) bool {
-	entity := event.Event.Data.EntityID
-	t, ok := a.Templates[entity]
-	if !ok || t.BoolAttributeKey == "" {
-		return event.Event.Data.NewState.IsON()
-	}
-
-	valTrue := "true"
-	if t.BoolAttributeValueTrue != "" {
-		valTrue = t.BoolAttributeValueTrue
-	}
-
-	// Looking for a specific attribute
-	var attr interface{}
-	if new {
-		attr, ok = event.Event.Data.NewState.Attributes[t.BoolAttributeKey]
-	} else {
-		attr, ok = event.Event.Data.OldState.Attributes[t.BoolAttributeKey]
-	}
-	if !ok {
-		return false
-	}
-
-	if reflect.TypeOf(attr).Kind() == reflect.String {
-		return attr.(string) == valTrue
-	}
-	if reflect.TypeOf(attr).Kind() == reflect.Bool {
-		vt, err := strconv.ParseBool(valTrue)
-		if err != nil {
-			vt = false
-		}
-		return attr.(bool) == vt
-	}
-
-	return false
 }
 
 func (a *AlertTriggerBool) getErrorMessage(event *model.HassEvent, err error) messaging.Message {
