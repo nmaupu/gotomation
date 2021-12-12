@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-
 	"github.com/mitchellh/mapstructure"
 	"github.com/nmaupu/gotomation/logging"
 	"github.com/nmaupu/gotomation/model"
@@ -24,15 +23,12 @@ type Gotomation struct {
 	Google struct {
 		CredentialsFile string `mapstructure:"creds_file"`
 	} `mapstructure:"google"`
+
 	// HomeAssistant server related options
-	HomeAssistant struct {
-		Host                string             `mapstructure:"host"`
-		Token               string             `mapstructure:"token"`
-		SubscribeEvents     []string           `mapstructure:"subscribe_events"`
-		HomeZoneName        string             `mapstructure:"home_zone_name"`
-		TLSEnabled          bool               `mapstructure:"tls_enabled"`
-		HealthCheckEntities []model.HassEntity `mapstructure:"health_check_entities"`
-	} `mapstructure:"home_assistant"`
+	HomeAssistant HomeAssistantConfig `mapstructure:"home_assistant"`
+
+	// Senders configures all sender configuration
+	Senders []SenderConfig `mapstructure:"senders"`
 
 	// Modules configuration
 	Modules []map[string]interface{} `mapstructure:"modules"`

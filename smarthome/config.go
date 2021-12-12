@@ -2,6 +2,7 @@ package smarthome
 
 import (
 	"fmt"
+	"github.com/nmaupu/gotomation/smarthome/messaging"
 	"net/http"
 	"path"
 	"sync"
@@ -36,6 +37,8 @@ const (
 	TriggerHeaterCheckersDisabler = "heaterCheckersDisabler"
 	// TriggerRandomLights is a module to set on/off lights randomly between a specific time frame
 	TriggerRandomLights = "randomLights"
+	// TriggerAlertBool is a module to send alerts to a specific sender depending on binary entity state change
+	TriggerAlertBool = "alert"
 )
 
 var (
@@ -67,6 +70,9 @@ var (
 		TriggerRandomLights: func() core.Actionable {
 			return new(RandomLightsTrigger)
 		},
+		TriggerAlertBool: func() core.Actionable {
+			return new(AlertTriggerBool)
+		},
 	}
 )
 
@@ -76,6 +82,7 @@ var (
 	mCheckers map[string][]core.Checkable
 	mTriggers map[string][]core.Triggerable
 	crontab   core.Crontab
+	mSenders  map[string]messaging.Sender
 )
 
 // Init inits checkers from configuration
@@ -96,6 +103,7 @@ func Init(config config.Gotomation) {
 
 	initHTTPServer(&config)
 	initGoogle(&config)
+	initSenderConfigs(&config)
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
@@ -148,6 +156,24 @@ func initGoogle(config *config.Gotomation) {
 	client, err := thirdparty.GetGoogleConfig().GetClient()
 	if err != nil || client == nil {
 		l.Error().Err(err).Msg("Cannot get token from Google, allow Gotomation app first")
+	}
+}
+
+func initSenderConfigs(config *config.Gotomation) {
+	var err error
+	l := logging.NewLogger("initSenderConfigs")
+
+	// (Re)init sender configs map
+	mSenders = make(map[string]messaging.Sender, 0)
+
+	for _, senderConfig := range config.Senders {
+		mSenders[senderConfig.Name], err = senderConfig.GetSender()
+		if err != nil {
+			l.Error().
+				Err(err).
+				Str("name", senderConfig.Name).
+				Msg("Unable to configure sender")
+		}
 	}
 }
 
@@ -374,4 +400,15 @@ func GetCheckersByType(name string) []core.Checkable {
 	// As long as return value is a slice copy of interfaces,
 	// we should be doing ok thread safe wise
 	return mCheckers[name]
+}
+
+func GetSender(name string) messaging.Sender {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	sender, ok := mSenders[name]
+	if !ok {
+		return nil
+	} else {
+		return sender
+	}
 }

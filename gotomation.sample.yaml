@@ -11,6 +11,12 @@ home_assistant:
     - roku_command
   home_zone_name: home # Get latitude and longitude from configured zone
 
+senders:
+  - name: telegram
+    telegram:
+      token: myBotToken
+      chat_id: chatid
+
 # This uses github.com/robfig/cron
 crons:
   - expr: 0 1 * * *
@@ -27,6 +33,21 @@ modules:
       restart_entity: switch.living_fbx
 
 triggers:
+  - alert:
+      trigger_entities:
+        - binary_sensor.basement_leak_water_leak
+      sender: telegram
+      templates:
+        binary_sensor.basement_leak_water_leak:
+          bool_attr_key: water_leak
+          msg_template: |
+            {{- if .Event.NewState.Attributes.water_leak != .Event.OldState.Attributes.water_leak }}
+              {{- if .Event.NewState.Attributes.water_leak }}
+              ⚠ Dehumidifier full !
+              {{- else }}
+              Dehumidifier empty 👍 !
+              {{- end }}
+            {{- end }}
   - dehumidifier:
       enabled: false
       trigger_entities:
