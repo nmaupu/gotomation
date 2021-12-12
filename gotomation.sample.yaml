@@ -11,6 +11,7 @@ home_assistant:
     - roku_command
   home_zone_name: home # Get latitude and longitude from configured zone
 
+  # Or pass it as param with --senderConfig 'base64 encoded json' --senderConfig 'base64 encoded json' ...
 senders:
   - name: telegram
     telegram:

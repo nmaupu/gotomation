@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"github.com/rs/zerolog"
 	"math/rand"
 	"os"
@@ -23,6 +25,8 @@ type gotomationFlags struct {
 	Verbosity  string
 	HassToken  string
 	Version    bool
+
+	SenderConfig []string
 }
 
 func main() {
@@ -37,6 +41,28 @@ func main() {
 	gotoConfig := config.Gotomation{}
 	if gotoFlags.HassToken != "" {
 		gotoConfig.HomeAssistant.Token = gotoFlags.HassToken
+	}
+
+	for _, senderConfigJSONb64 := range gotoFlags.SenderConfig {
+		senderCfg := config.SenderConfig{}
+		senderConfigJSON, err := base64.StdEncoding.DecodeString(senderConfigJSONb64)
+		if err != nil {
+			l.Error().
+				Err(err).
+				Str("config", senderConfigJSONb64).
+				Msg("An error occurred parsing --senderConfig")
+			continue
+		}
+
+		err = json.Unmarshal(senderConfigJSON, &senderCfg)
+		if err != nil {
+			l.Error().
+				Err(err).
+				Str("config", string(senderConfigJSON)).
+				Msg("An error occurred parsing --senderConfig")
+			continue
+		}
+		gotoConfig.Senders = append(gotoConfig.Senders, senderCfg)
 	}
 
 	// Initializing rand package
@@ -104,6 +130,7 @@ func handleFlags() gotomationFlags {
 	flag.StringVarP(&gotoFlags.ConfigFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
 	flag.StringVarP(&gotoFlags.Verbosity, "verbosity", "v", "info", "Specify log's Verbosity")
 	flag.StringVarP(&gotoFlags.HassToken, "token", "t", "", "Specify token to use for Home Assistant API calls")
+	flag.StringSliceVar(&gotoFlags.SenderConfig, "senderConfig", []string{}, "Specify custom sender config as base64 json (multiple --configSender possible)")
 
 	flag.Parse()
 
