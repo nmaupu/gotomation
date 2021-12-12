@@ -211,12 +211,12 @@ func (h *HeaterChecker) GinHandler(c *gin.Context) {
 		*core.Module
 		Name          string
 		SchedulesFile string
-		Schedules     core.HeaterSchedules
+		Schedules     *core.HeaterSchedules
 	}{
 		Module:        &h.Module,
 		Name:          h.Name,
 		SchedulesFile: h.SchedulesFile,
-		Schedules:     *h.schedules,
+		Schedules:     h.schedules,
 	}
 
 	c.JSON(http.StatusOK, obj)
