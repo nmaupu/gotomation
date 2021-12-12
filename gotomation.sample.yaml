@@ -40,7 +40,6 @@ triggers:
       sender: telegram
       templates:
         binary_sensor.basement_leak_water_leak:
-          bool_attr_key: water_leak
           msg_template: |
             {{- if .Event.NewState.Attributes.water_leak != .Event.OldState.Attributes.water_leak }}
               {{- if .Event.NewState.Attributes.water_leak }}
