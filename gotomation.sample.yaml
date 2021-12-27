@@ -32,6 +32,19 @@ modules:
       ping_host: 8.8.8.8
       max_reboot_every: 180s
       restart_entity: switch.living_fbx
+  - freshnessChecker:
+      enabled: true
+      name: Zigbee temp sensors
+      interval: 10s
+      freshness: 30s
+      sender: telegram
+      entities:
+        - sensor.blue_hum_temp_last_seen
+        - sensor.bedroom_hum_temp_last_seen
+      template: |
+        Les sensors Zigbee suivants n'ont pas donné de nouvelles depuis plus de {{ .Checker.Freshness }}:
+        {{ JoinEntities .Entities "\n" "_last_seen" }}
+
 
 triggers:
   - alert:

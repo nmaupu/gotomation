@@ -115,3 +115,17 @@ func StringToHassEntityDecodeHookFunc() mapstructure.DecodeHookFunc {
 		}, nil
 	}
 }
+
+// JoinEntities joins a slice of entities
+func JoinEntities(elems []HassEntity, sep string, toDeleteFromEntityID ...string) string {
+	// Building a slice of string for strings.Join
+	strs := make([]string, len(elems))
+	for idx, e := range elems {
+		s := e.GetEntityIDFullName()
+		for _, toDelete := range toDeleteFromEntityID {
+			s = strings.ReplaceAll(s, toDelete, "")
+		}
+		strs[idx] = s
+	}
+	return strings.Join(strs, sep)
+}

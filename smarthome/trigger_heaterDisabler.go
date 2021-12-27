@@ -14,7 +14,7 @@ type HeaterCheckersDisablerTrigger struct {
 
 // Trigger godoc
 func (d *HeaterCheckersDisablerTrigger) Trigger(event *model.HassEvent) {
-	l := logging.NewLogger("HeaterCheckersDisabler")
+	l := logging.NewLogger("HeaterCheckersDisabler.Trigger")
 
 	l.Trace().
 		EmbedObject(event).

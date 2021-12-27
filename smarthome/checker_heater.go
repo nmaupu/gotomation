@@ -26,7 +26,7 @@ const (
 )
 
 var (
-	_ (core.Modular) = (*HeaterChecker)(nil)
+	_ core.Modular = (*HeaterChecker)(nil)
 )
 
 // HeaterChecker sets the heater's thermostat based on schedules
