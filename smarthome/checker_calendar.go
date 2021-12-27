@@ -1,6 +1,8 @@
 package smarthome
 
 import (
+	"github.com/gin-gonic/gin"
+	"net/http"
 	"time"
 
 	"github.com/nmaupu/gotomation/core"
@@ -68,4 +70,8 @@ func (c *CalendarChecker) Check() {
 				Msg("Calendar event")
 		}
 	}
+}
+
+func (c *CalendarChecker) GinHandler(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, *c)
 }

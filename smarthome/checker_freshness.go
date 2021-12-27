@@ -3,9 +3,11 @@ package smarthome
 import (
 	"bytes"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/httpclient"
 	"github.com/nmaupu/gotomation/model"
 	"github.com/nmaupu/gotomation/smarthome/messaging"
+	"net/http"
 	"strings"
 	"text/template"
 	"time"
@@ -26,8 +28,6 @@ const (
 // FreshnessChecker checks freshness of devices against a duration (using last_seen property)
 type FreshnessChecker struct {
 	core.Module `mapstructure:",squash"`
-	// Name for this FreshnessChecker
-	Name string `mapstructure:"name"`
 	// Entities are the entities returning device's last seen value
 	Entities []model.HassEntity `mapstructure:"entities"`
 	// Sender is used to send an alert if one or more entities have not been seen soon enough
@@ -166,4 +166,8 @@ func (c *FreshnessChecker) getErrorMessage(err error) messaging.Message {
 	return messaging.Message{
 		Content: fmt.Sprintf("FreshnessChecker: cannot compile template %s, err=%s", c.Template, err.Error()),
 	}
+}
+
+func (c *FreshnessChecker) GinHandler(ctx *gin.Context) {
+	ctx.JSON(http.StatusOK, *c)
 }
