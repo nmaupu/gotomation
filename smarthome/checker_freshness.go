@@ -61,11 +61,9 @@ func (c *FreshnessChecker) Check() {
 				Err(err).
 				Object("entity", entity).
 				Msg("unable to get entity")
+			continue
 		}
-		l.Info().
-			Object("entity", entity).
-			Str("last_seen", hassEntity.State.State).
-			Msg("entity last seen")
+
 		lastSeen, err := time.Parse(c.TimeFormat, hassEntity.State.State)
 		if err != nil {
 			l.Error().Err(err).
@@ -73,6 +71,7 @@ func (c *FreshnessChecker) Check() {
 				Str("last_seen", hassEntity.State.State).
 				Str("time_format", c.TimeFormat).
 				Msg("unable to parse last seen time")
+			continue
 		}
 
 		duration := now.Sub(lastSeen)
@@ -88,6 +87,7 @@ func (c *FreshnessChecker) Check() {
 
 		// ok
 		l.Debug().
+			Object("entity", entity).
 			Str("last_seen_duration", duration.String()).
 			Msg("Duration since last seen date")
 	}
