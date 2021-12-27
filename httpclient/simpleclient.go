@@ -114,11 +114,16 @@ func (c *simpleClient) GetEntity(domain string, name string) (model.HassEntity, 
 
 // CheckServerAPIHealth verifies that the server is started and ready to serve requests (and that database is loaded)
 func (c *simpleClient) CheckServerAPIHealth() bool {
+	l := logging.NewLogger("SimpleClient.CheckServerAPIHealth")
 	// Checking each provided entities
 	var err error
 	for _, e := range c.HassConfig.HealthCheckEntities {
 		_, err = c.GetEntity(e.Domain, e.EntityID)
 		if err != nil {
+			l.Debug().
+				Err(err).
+				Object("entity", e).
+				Msg("entity is not available")
 			return false
 		}
 	}

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	_ (Modular) = (*Module)(nil)
+	_ Modular = (*Module)(nil)
 )
 
 // Module is the base struct to build a module
@@ -22,7 +22,7 @@ type Module struct {
 // Check godoc
 func (m *Module) Check() {
 	l := logging.NewLogger("Module.Check")
-	l.Error().Err(errors.New("Not implemented")).Send()
+	l.Error().Err(errors.New("not implemented")).Send()
 }
 
 // GetInterval godoc

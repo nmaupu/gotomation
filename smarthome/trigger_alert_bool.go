@@ -18,7 +18,7 @@ var (
 )
 
 const (
-	DefaultTemplateString = "{{ .Event.EntityID }} has been changed to {{ .Event.NewState.State }}"
+	DefaultAlertTriggerBoolTemplateString = "{{ .Event.EntityID }} has been changed to {{ .Event.NewState.State }}"
 )
 
 // AlertTriggerBool sends alert to a Sender when a specific boolean has its state changed
@@ -61,7 +61,7 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 	entity := event.Event.Data.EntityID
 
 	// Getting template if set
-	tplString := DefaultTemplateString
+	tplString := DefaultAlertTriggerBoolTemplateString
 	t, ok := a.Templates[entity]
 	if ok && t.MsgTemplate != "" {
 		tplString = t.MsgTemplate
@@ -94,6 +94,7 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 	msg := strings.Trim(buf.String(), " ")
 	l.Debug().
 		Str("msg", msg).
+		Str("sender", a.Sender).
 		Msg("Message to send")
 	if msg == "" {
 		l.Warn().Msg("Message is empty, ignoring event")

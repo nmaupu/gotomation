@@ -24,7 +24,7 @@ type CalendarChecker struct {
 
 // Check runs a single check
 func (c *CalendarChecker) Check() {
-	l := logging.NewLogger("CalendarLights.Trigger")
+	l := logging.NewLogger("CalendarLights.Check")
 
 	client, err := thirdparty.GetGoogleConfig().GetClient()
 	if err != nil {
