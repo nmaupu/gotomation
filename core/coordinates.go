@@ -88,6 +88,9 @@ func (c *coordinates) Start() error {
 		return nil
 	}
 
+	// init stop channel
+	c.sunriseSunsetDone = make(chan bool, 1)
+
 	l := logging.NewLogger("Coordinates.Start")
 
 	// first init before ticker ticks
@@ -121,7 +124,7 @@ func (c *coordinates) Start() error {
 func (c *coordinates) IsStarted() bool {
 	c.mutexStopStart.Lock()
 	defer c.mutexStopStart.Unlock()
-	return c.started
+	return c.started && c.sunriseSunsetDone != nil
 }
 
 func (c *coordinates) GetLatitude() float64 {

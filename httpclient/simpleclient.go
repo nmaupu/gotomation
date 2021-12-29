@@ -17,7 +17,7 @@ import (
 type SimpleClient interface {
 	GetEntities(domain string, name string) ([]model.HassEntity, error)
 	GetEntity(domain string, name string) (model.HassEntity, error)
-	CheckServerAPIHealth() bool
+	CheckServerAPIHealth() error
 	CallService(entity model.HassEntity, service string, extraParams map[string]interface{}) error
 }
 
@@ -54,8 +54,8 @@ func (c *simpleClient) GetEntities(domain string, name string) ([]model.HassEnti
 		return nil, err
 	}
 
-	if 200 != resp.StatusCode {
-		return nil, fmt.Errorf("HTTP response code is not 200, got=%d", resp.StatusCode)
+	if resp.StatusCode >= 400 {
+		return nil, NewErrorStatusNotOK(resp.StatusCode)
 	}
 
 	// Getting all states
@@ -113,21 +113,20 @@ func (c *simpleClient) GetEntity(domain string, name string) (model.HassEntity, 
 }
 
 // CheckServerAPIHealth verifies that the server is started and ready to serve requests (and that database is loaded)
-func (c *simpleClient) CheckServerAPIHealth() bool {
+func (c *simpleClient) CheckServerAPIHealth() error {
 	l := logging.NewLogger("SimpleClient.CheckServerAPIHealth")
 	// Checking each provided entities
-	var err error
 	for _, e := range c.HassConfig.HealthCheckEntities {
-		_, err = c.GetEntity(e.Domain, e.EntityID)
+		_, err := c.GetEntity(e.Domain, e.EntityID)
 		if err != nil {
-			l.Debug().
+			l.Trace().
 				Err(err).
 				Object("entity", e).
 				Msg("entity is not available")
-			return false
+			return err
 		}
 	}
-	return true
+	return nil
 }
 
 // CallService calls a service
