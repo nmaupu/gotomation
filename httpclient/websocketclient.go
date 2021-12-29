@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
 	"net"
 	"reflect"
 	"strings"
@@ -99,8 +100,8 @@ func (c *webSocketClient) RegisterCallback(hassType string, f ResponseHandlerSig
 	}
 }
 
-// DeregisterCallback deregisters a callback given its type
-func (c *webSocketClient) DeregisterCallback(hassType string) {
+// UnregisterCallback unregisters a callback given its type
+func (c *webSocketClient) UnregisterCallback(hassType string) {
 	if c.callbacks != nil {
 		delete(c.callbacks, hassType)
 	}
@@ -130,12 +131,12 @@ func (c *webSocketClient) mustConnect(retryEvery time.Duration) {
 				Msg("Connection established")
 			// resubscribing to registered events
 			c.mutexEventsSubscribed.Lock()
-			defer c.mutexEventsSubscribed.Unlock()
 			for _, e := range c.EventsSubscribed {
 				if !c.requestsTracker.IsInProgress(e.GetID()) {
 					c.EnqueueRequest(NewWebSocketRequest(e))
 				}
 			}
+			c.mutexEventsSubscribed.Unlock()
 			return
 		}
 
@@ -308,8 +309,16 @@ loop:
 			request.LastUpdateTime = time.Now()
 			c.requestsTracker.InProgress(request)
 
-			if !GetSimpleClient().CheckServerAPIHealth() {
-				l.Warn().Msg("Server is unavailable, requeuing")
+			if err := GetSimpleClient().CheckServerAPIHealth(); err != nil {
+				var eNotOK *ErrorStatusNotOK
+				isErrStatusNotOK := errors.As(err, &eNotOK)
+				if isErrStatusNotOK {
+					l.Error().Err(err).
+						Int("status", eNotOK.Status).
+						Msg("Status was not ok when getting health check entities, requeuing")
+				} else {
+					l.Warn().Msg("Server is unavailable, requeuing")
+				}
 				c.requeueRequest(request, 2*time.Second)
 				continue
 			}
