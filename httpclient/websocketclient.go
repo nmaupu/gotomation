@@ -56,6 +56,9 @@ type webSocketClient struct {
 	mutexEventsSubscribed sync.Mutex
 	EventsSubscribed      map[uint64]model.HassEventSubscription
 
+	mustConnectStop      bool
+	mustConnectStopMutex sync.Mutex
+
 	// requestChannel is used to share WebSocketRequest objects between go routines
 	requestChannel chan *WebSocketRequest
 	// workerRequestsHandlerStop is used to stop workerRequestsHandler routine
@@ -117,34 +120,38 @@ func (c *webSocketClient) mustConnect(retryEvery time.Duration) {
 	c.SetAuthenticated(false)
 	atomic.StoreUint64(&c.id, 0)
 
-	for {
+	c.mustConnectStopMutex.Lock()
+	c.mustConnectStop = false
+	c.mustConnectStopMutex.Unlock()
+	for !c.mustConnectStop {
 		l.Info().
 			Str("url", c.URL.String()).
 			Msg("Trying to connect")
 		c.mutexConn.Lock()
 		c.conn, _, _, err = ws.DefaultDialer.Dial(context.Background(), c.URL.String())
 		c.mutexConn.Unlock()
-		if err == nil {
-			c.setConnected(true)
-			l.Info().
-				Str("url", c.URL.String()).
-				Msg("Connection established")
-			// resubscribing to registered events
-			c.mutexEventsSubscribed.Lock()
-			for _, e := range c.EventsSubscribed {
-				if !c.requestsTracker.IsInProgress(e.GetID()) {
-					c.EnqueueRequest(NewWebSocketRequest(e))
-				}
-			}
-			c.mutexEventsSubscribed.Unlock()
-			return
+
+		if err != nil {
+			l.Error().
+				Err(err).
+				Msg("An error occurred during connection")
+			time.Sleep(retryEvery)
+			continue
 		}
 
-		l.Error().
-			Err(err).
-			Msg("An error occurred during connection")
-
-		time.Sleep(retryEvery)
+		c.setConnected(true)
+		l.Info().
+			Str("url", c.URL.String()).
+			Msg("Connection established")
+		// resubscribing to registered events
+		c.mutexEventsSubscribed.Lock()
+		for _, e := range c.EventsSubscribed {
+			if !c.requestsTracker.IsInProgress(e.GetID()) {
+				c.EnqueueRequest(NewWebSocketRequest(e))
+			}
+		}
+		c.mutexEventsSubscribed.Unlock()
+		return
 	}
 }
 
@@ -162,6 +169,10 @@ func (c *webSocketClient) Stop() {
 		return
 	}
 
+	// Stop mustConnect for loop if running
+	c.mustConnectStopMutex.Lock()
+	c.mustConnectStop = true
+	c.mustConnectStopMutex.Unlock()
 	c.workerRequestsHandlerStop <- true
 
 	// Cleaning conn and force workerDaemon to get out of the blocking reading func
