@@ -117,7 +117,7 @@ func (g *googleConfig) GetTokenFromWeb(authCode string) error {
 		return fmt.Errorf("config is nil, cannot proceed")
 	}
 
-	tok, err := g.config.Exchange(context.TODO(), authCode)
+	tok, err := g.config.Exchange(context.Background(), authCode)
 	if err != nil {
 		return err
 	}
