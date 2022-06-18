@@ -264,7 +264,8 @@ func (c *webSocketClient) SubscribeEvents(eventTypes ...string) {
 }
 
 // CallService is a generic function to call any service
-// TODO Deprecated: Might not work, to be debugged
+// Deprecated: Might not work, use at your own risk
+// TODO to be debugged
 func (c *webSocketClient) CallService(entity model.HassEntity, service string) {
 	l := logging.NewLogger("WebSocketClient.CallService")
 	d := model.HassService{

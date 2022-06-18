@@ -129,7 +129,7 @@ func (s *httpService) Stop() {
 	}
 
 	l.Trace().Msg("Stopping HTTP server")
-	s.server.Shutdown(context.TODO())
+	s.server.Shutdown(context.Background())
 	s.started = false
 }
 
