@@ -53,7 +53,8 @@ func InitGoogleConfig(credsFilePath string, scopes ...string) error {
 
 	once.Do(func() {
 		l.Info().Msg("Initializing Google creds config")
-		hdir, onceErr := homedir.Dir()
+		var hdir string
+		hdir, onceErr = homedir.Dir()
 		if onceErr != nil {
 			return
 		}

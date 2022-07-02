@@ -143,7 +143,7 @@ func handleFlags() gotomationFlags {
 	}
 
 	if err := logging.SetVerbosity(gotoFlags.Verbosity); err != nil {
-		logging.SetVerbosity("info")
+		_ = logging.SetVerbosity("info")
 	}
 
 	return gotoFlags
