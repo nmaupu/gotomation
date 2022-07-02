@@ -162,7 +162,7 @@ func (c *coordinates) getSunriseSunset(cache bool) (time.Time, time.Time, error)
 	if !c.sunrise.IsZero() && !c.sunset.IsZero() {
 		durationSinceLastUpdate := now.Sub(c.lastUpdate)
 		if (cache && durationSinceLastUpdate < 12*time.Hour) ||
-			durationSinceLastUpdate < 5*time.Second {
+			durationSinceLastUpdate < 30*time.Second {
 			return c.sunrise, c.sunset, nil
 		}
 	}
