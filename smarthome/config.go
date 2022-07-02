@@ -91,7 +91,7 @@ var (
 )
 
 // Init inits checkers from configuration
-func Init(config config.Gotomation) {
+func Init(config config.Gotomation) error {
 	l := logging.NewLogger("Init")
 	mutex.Lock()
 	defer mutex.Unlock()
@@ -103,7 +103,7 @@ func Init(config config.Gotomation) {
 		l.Error().Err(err).
 			Str("zone_name", config.HomeAssistant.HomeZoneName).
 			Msg("Unable to get coordinates from zone name")
-		return
+		return err
 	}
 
 	initHTTPServer(&config)
@@ -113,6 +113,7 @@ func Init(config config.Gotomation) {
 	initCheckers(&config)
 	initCrons(&config)
 	routines.StartAllRunnables()
+	return nil
 }
 
 // StopAndWait stops and free all allocated smarthome objects
@@ -160,7 +161,7 @@ func initGoogle(config *config.Gotomation) {
 
 	client, err := thirdparty.GetGoogleConfig().GetClient()
 	if err != nil || client == nil {
-		l.Error().Err(err).Msg("Cannot get token from Google, allow Gotomation app first")
+		l.Error().Err(err).Msg("cannot get token from Google, allow Gotomation app first")
 	}
 }
 

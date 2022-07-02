@@ -46,7 +46,7 @@ func (g Gotomation) Validate() bool {
 }
 
 // ReadConfigFromFile loads or reloads config from viper's config file
-func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config Gotomation)) error {
+func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config Gotomation) error) error {
 	l := logging.NewLogger("Gotomation.LoadConfig").With().Str("config_file", vi.ConfigFileUsed()).Logger()
 
 	if err := vi.ReadInConfig(); err != nil {
@@ -72,8 +72,7 @@ func (g Gotomation) ReadConfigFromFile(vi *viper.Viper, loadConfig func(config G
 	}
 	l.Trace().Str("config", fmt.Sprintf("%+v", g)).Msg("Config dump")
 
-	loadConfig(g)
-	return nil
+	return loadConfig(g)
 }
 
 // MapstructureDecodeHookFunc returns a mapstructure decode hook func to handle Gotomation configuration objects

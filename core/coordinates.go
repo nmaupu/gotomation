@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"github.com/nmaupu/gotomation/model"
 	"sync"
 	"time"
 
@@ -14,8 +15,9 @@ import (
 )
 
 var (
-	coords coordinates
-	once   sync.Once
+	coords  coordinates
+	once    sync.Once
+	onceErr error
 )
 
 // Coordinates represents GPS coordinates using latitude and longitude
@@ -46,12 +48,12 @@ type coordinates struct {
 
 // InitCoordinates gets the latitude and longitude of a Home Assistant zone entity
 func InitCoordinates(zoneName string) error {
-	var err error
 	once.Do(
 		func() {
-			entity, err := httpclient.GetSimpleClient().GetEntity("zone", zoneName)
-			if err != nil {
-				err = errors.Wrapf(err, "Unable to get latitude and longitude, err=%v", err)
+			var entity model.HassEntity
+			entity, onceErr = httpclient.GetSimpleClient().GetEntity("zone", zoneName)
+			if onceErr != nil {
+				onceErr = errors.Wrapf(onceErr, "Unable to get latitude and longitude")
 			} else {
 				coords = coordinates{
 					Latitude:          entity.State.Attributes["latitude"].(float64),
@@ -62,7 +64,7 @@ func InitCoordinates(zoneName string) error {
 			}
 		})
 
-	return err
+	return onceErr
 }
 
 // Coords returns the Coordinates singleton
@@ -104,7 +106,7 @@ func (c *coordinates) Start() error {
 	go func() { // updating sunrise / sunset dates once in a while
 		defer app.RoutinesWG.Done()
 		l.Debug().Msg("Starting sunrise/sunset refresh go routine")
-		ticker := time.NewTicker(6 * time.Hour)
+		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
 		for {
 			select {
@@ -179,14 +181,19 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	c.mutex.Lock()
 	c.sunrise = time.Date(now.Year(), now.Month(), now.Day(), sunrise.Hour(), sunrise.Minute(), sunrise.Second(), sunrise.Nanosecond(), now.Location())
 	c.sunset = time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), sunset.Nanosecond(), now.Location())
+	c.lastUpdate = now
 	c.mutex.Unlock()
 
-	c.lastUpdate = now
 	return c.sunrise, c.sunset, nil
 }
 
 // IsDarkNow returns true if it's dark outside
 func (c *coordinates) IsDarkNow(offsetDawn, offsetDusk time.Duration) bool {
+	l := logging.NewLogger("IsDarkNow")
+	if c.GetLatitude() == 0 || c.GetLongitude() == 0 {
+		l.Warn().Msg("Latitude or longitude is not set, cannot determine if it's dark")
+		return false
+	}
 	now := time.Now().Local()
 	sunrise, sunset, _ := c.GetSunriseSunset()
 	sunrise = sunrise.Add(offsetDawn)

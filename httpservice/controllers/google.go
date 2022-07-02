@@ -11,6 +11,7 @@ import (
 )
 
 // GoogleWebTokenHandler is the handler to fill a token gotten after using the auth url
+// Deprecated: not used for anything
 func GoogleWebTokenHandler(c *gin.Context) {
 	//l := logging.NewLogger("GoogleWebTokenHandler")
 
