@@ -99,7 +99,7 @@ func (c *coordinates) Start() error {
 	app.RoutinesWG.Add(1)
 	go func() {
 		defer app.RoutinesWG.Done()
-		c.getSunriseSunset(true)
+		c.getSunriseSunset(false)
 	}()
 
 	app.RoutinesWG.Add(1)
@@ -114,7 +114,7 @@ func (c *coordinates) Start() error {
 				l.Trace().Msg("Exiting sunrise/sunset refresh go routine")
 				return
 			case <-ticker.C:
-				c.getSunriseSunset(true)
+				c.getSunriseSunset(false)
 			}
 		}
 	}()
@@ -138,16 +138,18 @@ func (c *coordinates) GetLongitude() float64 {
 }
 
 func (c *coordinates) GetSunriseSunset() (time.Time, time.Time, error) {
-	return c.getSunriseSunset(false)
+	return c.getSunriseSunset(true)
 }
 
 // GetSunriseSunset gets sunrise and sunset times
-func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, error) {
-	now := time.Now().Local()
-
+func (c *coordinates) getSunriseSunset(cache bool) (time.Time, time.Time, error) {
 	if c.mutex == nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("call NewLatitudeLongitude to create Coordinates")
 	}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	now := time.Now().Local()
 
 	l := logging.NewLogger("GetSunriseSunset")
 
@@ -155,11 +157,14 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 		l.Trace().Str("duration", time.Now().Sub(now).String()).Msg("Time taken to get sunrise/sunset dates")
 	}()
 
-	// if set, returning saved values
-	if !noCache && now.Sub(c.lastUpdate) < 12*time.Hour && !c.sunrise.IsZero() && !c.sunset.IsZero() {
-		c.mutex.Lock()
-		defer c.mutex.Unlock()
-		return c.sunrise, c.sunset, nil
+	// If cache is true, return values if freshness is < 12 hours
+	// If func has been called too soon (< 5 secs), returning cached values if they exist even if cache is false
+	if !c.sunrise.IsZero() && !c.sunset.IsZero() {
+		durationSinceLastUpdate := now.Sub(c.lastUpdate)
+		if (cache && durationSinceLastUpdate < 12*time.Hour) ||
+			durationSinceLastUpdate < 5*time.Second {
+			return c.sunrise, c.sunset, nil
+		}
 	}
 
 	name, offset := now.Zone()
@@ -178,11 +183,9 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	}
 
 	// Using now.Location() to get correct timezone (sunrise and sunset doesn't have a Location set to return UTC time.UTC)
-	c.mutex.Lock()
 	c.sunrise = time.Date(now.Year(), now.Month(), now.Day(), sunrise.Hour(), sunrise.Minute(), sunrise.Second(), sunrise.Nanosecond(), now.Location())
 	c.sunset = time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), sunset.Nanosecond(), now.Location())
 	c.lastUpdate = now
-	c.mutex.Unlock()
 
 	l.Info().
 		Time("sunrise", c.sunrise).
