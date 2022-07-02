@@ -106,7 +106,7 @@ func (c *coordinates) Start() error {
 	go func() { // updating sunrise / sunset dates once in a while
 		defer app.RoutinesWG.Done()
 		l.Debug().Msg("Starting sunrise/sunset refresh go routine")
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(6 * time.Hour)
 		defer ticker.Stop()
 		for {
 			select {
@@ -183,6 +183,11 @@ func (c *coordinates) getSunriseSunset(noCache bool) (time.Time, time.Time, erro
 	c.sunset = time.Date(now.Year(), now.Month(), now.Day(), sunset.Hour(), sunset.Minute(), sunset.Second(), sunset.Nanosecond(), now.Location())
 	c.lastUpdate = now
 	c.mutex.Unlock()
+
+	l.Info().
+		Time("sunrise", c.sunrise).
+		Time("sunset", c.sunset).
+		Msg("Sunrise, sunset dates has been initialized successfully")
 
 	return c.sunrise, c.sunset, nil
 }
