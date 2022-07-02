@@ -45,7 +45,7 @@ func HTTPServer() HTTPService {
 }
 
 // InitHTTPServer inits HTTP server singleton
-func InitHTTPServer(bindAddr string, port int, getExtraHandlers ...GinConfigHandlers) {
+func InitHTTPServer(bindAddr string, port int, getExtraHandlers ...GinConfigHandlers) error {
 	httpServer = httpService{
 		BindAddr: bindAddr,
 		Port:     port,
@@ -58,6 +58,7 @@ func InitHTTPServer(bindAddr string, port int, getExtraHandlers ...GinConfigHand
 	httpServer.router.GET("/coords", controllers.CoordsHandler)
 	httpServer.router.GET("/sun", controllers.SunriseSunsetHandler)
 	httpServer.AddExtraHandlers(getExtraHandlers...)
+	return nil
 }
 
 // GinConfigHandlers stores gin handlers configuration

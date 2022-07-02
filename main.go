@@ -78,17 +78,20 @@ func main() {
 		l := logging.NewLogger("OnConfigChange")
 		l.Info().Str("config", e.Name).Msg("Reloading configuration")
 
-		configChange(vi, gotoConfig, func(config config.Gotomation) {
+		_ = configChange(vi, gotoConfig, func(config config.Gotomation) error {
 			smarthome.StopAndWait()
-			loadConfig(config)
+			return loadConfig(config)
 		})
 	})
 
-	// Load config when starting
-	configChange(vi, gotoConfig, loadConfig)
-
 	// Display binary information
 	displayVersionInfo(l)
+
+	// Load config when starting
+	err := configChange(vi, gotoConfig, loadConfig)
+	if err != nil {
+		l.Fatal().Err(err).Msg("Unable to load config")
+	}
 
 	// Main loop, ctrl+c or kill -15 to stop
 	interrupt := make(chan os.Signal, 1)
@@ -104,16 +107,17 @@ func main() {
 	}
 }
 
-func configChange(vi *viper.Viper, config config.Gotomation, loadFunc func(config config.Gotomation)) {
+func configChange(vi *viper.Viper, config config.Gotomation, loadFunc func(config config.Gotomation) error) error {
 	l := logging.NewLogger("configChange")
 	err := config.ReadConfigFromFile(vi, loadFunc)
 	if err != nil {
 		l.Error().Err(err).Msgf("An error occurred reloading configuration")
 	}
+	return err
 }
 
-func loadConfig(config config.Gotomation) {
-	smarthome.Init(config)
+func loadConfig(config config.Gotomation) error {
+	return smarthome.Init(config)
 }
 
 func displayVersionInfo(logger zerolog.Logger) {

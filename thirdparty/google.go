@@ -19,9 +19,11 @@ import (
 var (
 	once                  sync.Once
 	googleConfigSingleton googleConfig
+	onceErr               error
 )
 
 // GoogleConfig is the interface to interact with the Google API
+// Deprecated: not used for anything
 type GoogleConfig interface {
 	GetAuthURL() string
 	GetTokenFromWeb(authCode string) error
@@ -36,6 +38,7 @@ type googleConfig struct {
 }
 
 // GetGoogleConfig returns the configured GoogleConfig object
+// Deprecated: not used for anything
 func GetGoogleConfig() GoogleConfig {
 	return &googleConfigSingleton
 }
@@ -43,7 +46,6 @@ func GetGoogleConfig() GoogleConfig {
 // InitGoogleConfig returns a new pointer to a GoogleConfig object
 func InitGoogleConfig(credsFilePath string, scopes ...string) error {
 	l := logging.NewLogger("InitGoogleConfig")
-	var err error
 
 	if credsFilePath == "" {
 		return fmt.Errorf("Google credentials file is not set, nothing to do")
@@ -51,28 +53,28 @@ func InitGoogleConfig(credsFilePath string, scopes ...string) error {
 
 	once.Do(func() {
 		l.Info().Msg("Initializing Google creds config")
-		hdir, err := homedir.Dir()
-		if err != nil {
+		hdir, onceErr := homedir.Dir()
+		if onceErr != nil {
 			return
 		}
-		expHomedir, err := homedir.Expand(hdir)
-		if err != nil {
+		expHomedir, onceErr := homedir.Expand(hdir)
+		if onceErr != nil {
 			return
 		}
 		cacheFile := fmt.Sprintf("%s/.gotomation-google-token.json", expHomedir)
 
-		b, err := ioutil.ReadFile(credsFilePath)
-		if err != nil {
+		b, onceErr := ioutil.ReadFile(credsFilePath)
+		if onceErr != nil {
 			return
 		}
 
 		googleConfigSingleton = googleConfig{
 			tokenCachePath: cacheFile,
 		}
-		googleConfigSingleton.config, err = google.ConfigFromJSON(b, scopes...)
+		googleConfigSingleton.config, onceErr = google.ConfigFromJSON(b, scopes...)
 	})
 
-	return err
+	return onceErr
 }
 
 // LoadTokenFromCache loads token from cache file
