@@ -89,6 +89,18 @@ func (e HassEntity) MarshalZerologObject(event *zerolog.Event) {
 		Str("state", e.State.State)
 }
 
+func (e *HassEntity) UnmarshalJSON(data []byte) error {
+	dataStr := string(data)
+	dataStr = strings.Trim(dataStr, `"`)
+	toks := strings.Split(dataStr, ".")
+	if len(toks) < 2 {
+		return fmt.Errorf("invalid entity %s", dataStr)
+	}
+	e.Domain = toks[0]
+	e.EntityID = strings.Join(toks[1:], "")
+	return nil
+}
+
 // StringToHassEntityDecodeHookFunc returns a mapstructure decode hook converting a string to a HassEntity
 func StringToHassEntityDecodeHookFunc() mapstructure.DecodeHookFunc {
 	return func(
