@@ -2,6 +2,7 @@ package messaging
 
 import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/nmaupu/gotomation/model"
 )
 
 var (
@@ -14,7 +15,7 @@ type TelegramSender struct {
 }
 
 // Send sends a message to Telegram
-func (t *TelegramSender) Send(m Message) error {
+func (t *TelegramSender) Send(m Message, _ *model.HassEvent) error {
 	botAPI, err := tgbotapi.NewBotAPI(t.Token)
 	if err != nil {
 		return err
