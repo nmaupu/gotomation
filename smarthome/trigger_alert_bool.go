@@ -82,7 +82,7 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 			Err(err).
 			Str("template", tplString).
 			Msg("an error occurred compiling template")
-		sender.Send(a.getErrorMessage(event, err))
+		sender.Send(a.getErrorMessage(event, err), event)
 		return
 	}
 	buf := bytes.NewBufferString("")
@@ -96,7 +96,7 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 			Err(err).
 			Str("template", tplString).
 			Msg("an error occurred executing template")
-		sender.Send(a.getErrorMessage(event, err))
+		sender.Send(a.getErrorMessage(event, err), event)
 		return
 	}
 
@@ -109,9 +109,7 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 		l.Warn().Msg("Message is empty, ignoring event")
 		return
 	}
-	err = sender.Send(messaging.Message{
-		Content: msg,
-	})
+	err = sender.Send(messaging.Message{Content: msg}, event)
 	if err != nil {
 		l.Error().
 			Err(err).

@@ -10,6 +10,8 @@ type SenderConfig struct {
 	Name string `mapstructure:"name" json:"name"`
 	// Telegram configures a telegram sender
 	Telegram *messaging.TelegramSender `mapstructure:"telegram" json:"telegram"`
+	// StatusLed configures a status LED
+	StatusLed *messaging.StatusLedSender `mapstructure:"statusLed" json:"statusLed"`
 }
 
 // GetSender gets the Sender interface depending on what field is set
@@ -20,6 +22,10 @@ func (s *SenderConfig) GetSender() (messaging.Sender, error) {
 		}
 
 		return s.Telegram, nil
+	}
+
+	if s.StatusLed != nil {
+		return s.StatusLed, nil
 	}
 
 	return nil, fmt.Errorf("no sender specified in configuration for %s", s.Name)

@@ -17,6 +17,11 @@ senders:
     telegram:
       token: myBotToken
       chat_id: chatid
+  - name: statusled
+    statusLed:
+      entity: switch.estrade_dehum_status
+
+
 
 # This uses github.com/robfig/cron
 crons:
@@ -61,6 +66,10 @@ triggers:
               Dehumidifier empty 👍 !
               {{- end }}
             {{- end }}
+  - alert:
+      trigger_entities:
+        - input_boolean.override_heater_blue
+      sender: statusled
   - dehumidifier:
       enabled: false
       trigger_entities:

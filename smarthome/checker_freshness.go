@@ -113,7 +113,7 @@ func (c *FreshnessChecker) Check() {
 			Err(err).
 			Str("template", c.Template).
 			Msg("an error occurred compiling template")
-		if err := sender.Send(c.getErrorMessage(err)); err != nil {
+		if err := sender.Send(c.getErrorMessage(err), nil); err != nil {
 			l.Error().Err(err).
 				Str("sender", c.Sender).
 				Msg("unable to send message to sender")
@@ -134,7 +134,7 @@ func (c *FreshnessChecker) Check() {
 			Err(err).
 			Str("template", c.Template).
 			Msg("an error occurred executing template")
-		if err := sender.Send(c.getErrorMessage(err)); err != nil {
+		if err := sender.Send(c.getErrorMessage(err), nil); err != nil {
 			l.Error().Err(err).
 				Str("sender", c.Sender).
 				Msg("unable to send message to sender")
@@ -153,7 +153,7 @@ func (c *FreshnessChecker) Check() {
 	}
 	err = sender.Send(messaging.Message{
 		Content: msg,
-	})
+	}, nil)
 	if err != nil {
 		l.Error().
 			Err(err).
