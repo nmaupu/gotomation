@@ -6,7 +6,7 @@ executors:
         - PROJECT_NAME: gotomation
     docker:
       - image: cimg/go:1.19.4
-    working_directory: /go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+    working_directory: /home/circleci/go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
 
 # https://circleci.com/docs/2.0/reusing-config
 
