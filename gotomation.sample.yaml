@@ -11,7 +11,7 @@ home_assistant:
     - roku_command
   home_zone_name: home # Get latitude and longitude from configured zone
 
-  # Or pass it as param with --senderConfig 'base64 encoded json' --senderConfig 'base64 encoded json' ...
+# Or pass it as param with --senderConfig 'base64 encoded json' --senderConfig 'base64 encoded json' ...
 senders:
   - name: telegram
     telegram:
@@ -20,8 +20,6 @@ senders:
   - name: statusled
     statusLed:
       entity: switch.estrade_dehum_status
-
-
 
 # This uses github.com/robfig/cron
 crons:
@@ -49,6 +47,21 @@ modules:
       template: |
         Les sensors Zigbee suivants n'ont pas donné de nouvelles depuis plus de {{ .Checker.Freshness }}:
         {{ JoinEntities .Entities "\n" "_last_seen" }}
+  - temperatureChecker:
+      enabled: true
+      interval: 10s
+      sender: telegram
+      sensors:
+        - entity: sensor.basement_bedroom_hum_temp_temperature
+          temp_threshold: 25
+        - entity: sensor.blue_hum_temp_temperature
+          temp_threshold: 25
+      date_begin: 01/10
+      date_end: 15/05
+      send_message_interval: 1m
+      template: |
+        Les sensors suivants ont une température excédant la limite:
+        {{ JoinEntities .Entities "\n" "_hum_temp_temperature"}}
 
 
 triggers:
@@ -90,4 +103,3 @@ triggers:
           commands:
             - {entity: light.escalier_switch, service: toggle, only_dark: true}
             - {delay: 250ms}
-
