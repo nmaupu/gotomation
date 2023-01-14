@@ -29,6 +29,8 @@ const (
 	ModuleCalendarChecker = "calendarChecker"
 	// ModuleFreshness checks at a regular interval if device has been last seen not too long ago
 	ModuleFreshness = "freshnessChecker"
+	// ModuleTemperatureChecker checks at a regular interval if device exceeds a certain temperature and alert if it does
+	ModuleTemperatureChecker = "temperatureChecker"
 	// TriggerDehumidifier triggers dehumidifier on or off depending on humidity
 	TriggerDehumidifier = "dehumidifier"
 	// TriggerHarmony uses Roku Emulated to make actions based on Harmony remote buttons press
@@ -56,6 +58,9 @@ var (
 		},
 		ModuleFreshness: func() core.Modular {
 			return new(FreshnessChecker)
+		},
+		ModuleTemperatureChecker: func() core.Modular {
+			return new(TemperatureChecker)
 		},
 	}
 
