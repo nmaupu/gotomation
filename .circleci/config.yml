@@ -47,7 +47,8 @@ jobs:
       - run:
           name: Publish release on Github
           command: |
-            go install github.com/tcnksm/ghr
+            go get github.com/tcnksm/ghr
+            export PATH=$PATH:$GOPATH/bin
             cd $GOPATH/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
             BIN_DIR=release make CI-process-release
 
