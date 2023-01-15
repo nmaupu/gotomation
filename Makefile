@@ -6,6 +6,7 @@ CIRCLE_TAG ?= main
 VERSION = $(CIRCLE_TAG)
 PKG_NAME = github.com/nmaupu/gotomation
 LDFLAGS = -ldflags="-X '$(PKG_NAME)/app.ApplicationVersion=$(VERSION)' -X '$(PKG_NAME)/app.BuildDate=$(shell date)'"
+GHR ?= ghr
 
 .PHONY: all
 all: build
@@ -33,11 +34,11 @@ $(BIN_DIR):
 .PHONY: CI-process-release
 CI-process-release:
 	@echo "Version to be released: $(CIRCLE_TAG)"
-	ghr -t $(GITHUB_TOKEN) \
-		-u $(CIRCLE_PROJECT_USERNAME) \
-		-r $(CIRCLE_PROJECT_REPONAME) \
-		-c $(CIRCLE_SHA1) \
-		-n "Release v$(CIRCLE_TAG)" \
-		-b "$(shell git log --format=%B -n1 $(CIRCLE_SHA1))" \
-		-delete \
-		$(CIRCLE_TAG) $(BIN_DIR)/
+	$(GHR) -t $(GITHUB_TOKEN) \
+		   -u $(CIRCLE_PROJECT_USERNAME) \
+		   -r $(CIRCLE_PROJECT_REPONAME) \
+		   -c $(CIRCLE_SHA1) \
+		   -n "Release v$(CIRCLE_TAG)" \
+		   -b "$(shell git log --format=%B -n1 $(CIRCLE_SHA1))" \
+		   -delete \
+		   $(CIRCLE_TAG) $(BIN_DIR)/
