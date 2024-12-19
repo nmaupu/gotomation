@@ -323,8 +323,7 @@ loop:
 
 			if err := GetSimpleClient().CheckServerAPIHealth(); err != nil {
 				var eNotOK *ErrorStatusNotOK
-				isErrStatusNotOK := errors.As(err, &eNotOK)
-				if isErrStatusNotOK {
+				if errors.As(err, &eNotOK) {
 					l.Error().Err(err).
 						Int("status", eNotOK.Status).
 						Msg("Status was not ok when getting health check entities, requeuing")
