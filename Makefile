@@ -1,6 +1,6 @@
 BIN_DIR ?= bin
 BIN_NAME=gotomation
-GOOS ?= darwin
+GOOS ?= linux
 GOARCH ?= amd64
 CIRCLE_TAG ?= main
 VERSION = $(CIRCLE_TAG)
