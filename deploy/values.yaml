@@ -1,18 +1,1 @@
-image:
-  repository: nmaupu/gotomation
-  tag: latest
-
-gotomation:
-  hassToken: mytoken # Token to use to connect to home assistant
-  config:
-    repo: https://github.com/nmaupu/gotomation-config
-    branch: master
-  senderConfigs: [] # Array of senderConfigs
-  #senderConfigs:
-  #  - name: statusled
-  #    statusLed:
-  #      entity: switch.estrade_dehum_status
-  #  - name: telegram
-  #    telegram:
-  #      token: tok
-  #      chat_id: -12345
+{}

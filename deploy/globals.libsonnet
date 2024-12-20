@@ -1,4 +1,4 @@
-local v = std.parseYaml(importstr 'values.yaml');
+local v = import 'values.libsonnet';
 
 {
   labels: {
