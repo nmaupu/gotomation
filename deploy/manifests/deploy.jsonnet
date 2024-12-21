@@ -8,18 +8,42 @@ local c = k.core.v1.container;
 local volumeMounts = [
   k.core.v1.volumeMount.withMountPath('/config')
   + k.core.v1.volumeMount.withName('config')
-  + k.core.v1.volumeMount.withReadOnly(true),
+  + k.core.v1.volumeMount.withReadOnly(false),
 ];
 
-local initContainers = [
-  c.withName('init')
-  + c.withImage('busybox:latest')
-  + c.withCommand(['sh', '-c', 'echo coucou'])
-  + c.withVolumeMounts(volumeMounts),
-];
+local gitRefresherContainer =
+  c.withName('git-refresher')
+  + c.withImage('%s:%s' % [v.git.image, v.git.tag])
+  + c.withCommand([  // This script refresh the git repository configured branch at a regular interval
+    'bash',
+    '-c',
+    |||
+      set -e
+      set -o pipefail
+      set -x
 
-local senderConfigFunc(x) = '--senderConfig=%s' % [std.base64(std.manifestJson(x))];
-local containers = [
+      REPO="%s"
+      BRANCH="%s"
+      INTERVAL="%d"
+
+      cd /config
+      git clone "https://$REPO" gotomation-config
+      git checkout "$BRANCH"
+
+      cd gotomation-config
+      while [ 1 ]; do
+        git fetch --all && git reset --hard "$BRANCH"
+        sleep "$INTERVAL"
+      done
+    ||| % [
+      v.git.gotomationConfig.repo,
+      v.git.gotomationConfig.branch,
+      v.git.gotomationConfig.refreshIntervalSeconds,
+    ],
+  ])
+  + c.withVolumeMounts(volumeMounts);
+
+local mainContainer =
   c.withName('gotomation')
   + c.withImage('%s:%s' % [v.image.repository, v.image.tag])
   + c.withCommand(['sleep', 'infinity'])
@@ -30,16 +54,23 @@ local containers = [
   //   ]
   //   + std.map(senderConfigFunc, v.gotomation.senderConfigs)
   // )
-  + c.withVolumeMounts(volumeMounts),
-];
+  + c.withVolumeMounts(volumeMounts)
+  + (if std.objectHas(v, 'existingSecretEnvVars') && std.length(v.existingSecretEnvVars) > 0 then
+       c.withEnvFrom(k.core.v1.envFromSource.secretRef.withName(v.existingSecretEnvVars))
+     else
+       {});
+
+local senderConfigFunc(x) = '--senderConfig=%s' % [std.base64(std.manifestJson(x))];
 
 sts.new(
   'gotomation',
   replicas=1,
-  containers=containers,
+  containers=[
+    mainContainer,
+    gitRefresherContainer,
+  ],
 )
 + sts.metadata.withLabels(g.labels)
 + sts.spec.selector.withMatchLabels(g.labels)
 + sts.spec.template.metadata.withLabels(g.labels)
-+ sts.spec.template.spec.withInitContainers(initContainers)
 + sts.spec.template.spec.withVolumes(k.core.v1.volume.fromEmptyDir('config'))
