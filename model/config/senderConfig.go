@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+
 	"github.com/nmaupu/gotomation/smarthome/messaging"
+	"github.com/rs/zerolog"
 )
 
 type SenderConfig struct {
@@ -29,4 +31,17 @@ func (s *SenderConfig) GetSender() (messaging.Sender, error) {
 	}
 
 	return nil, fmt.Errorf("no sender specified in configuration for %s", s.Name)
+}
+
+func (s SenderConfig) MarshalZerologObject(event *zerolog.Event) {
+	event.
+		Str("name", s.Name)
+	if s.Telegram != nil {
+		event.
+			Int64("telegram_chat_id", s.Telegram.ChatID).
+			Str("telegram_token", s.Telegram.Token)
+	}
+	if s.StatusLed != nil {
+		event.Object("status_led_", s.StatusLed.Entity)
+	}
 }

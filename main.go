@@ -3,13 +3,14 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
-	"github.com/rs/zerolog"
-	"math/rand"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
+
+	"github.com/rs/zerolog"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/nmaupu/gotomation/app"
@@ -43,6 +44,11 @@ func main() {
 		gotoConfig.HomeAssistant.Token = gotoFlags.HassToken
 	}
 
+	// Loading sender configs from env if any and add them to the ones provided with the corresponding flag
+	senderConfigsFromEnv := os.Getenv("SENDER_CONFIGS")
+	if senderConfigsFromEnv != "" {
+		gotoFlags.SenderConfig = append(gotoFlags.SenderConfig, strings.Split(senderConfigsFromEnv, `,`)...)
+	}
 	for _, senderConfigJSONb64 := range gotoFlags.SenderConfig {
 		senderCfg := config.SenderConfig{}
 		senderConfigJSON, err := base64.StdEncoding.DecodeString(senderConfigJSONb64)
@@ -65,15 +71,16 @@ func main() {
 		gotoConfig.Senders = append(gotoConfig.Senders, senderCfg)
 	}
 
-	// Initializing rand package
-	rand.Seed(time.Now().UnixNano())
-
 	// Get config from file
 	vi := viper.New()
 	vi.SetConfigType("yaml")
 	vi.SetConfigName(filepath.Base(gotoFlags.ConfigFile))
 	vi.AddConfigPath(filepath.Dir(gotoFlags.ConfigFile))
 	vi.WatchConfig()
+
+	// Binding some env var to config keys
+	vi.BindEnv("home_assistant.token", "HASS_TOKEN")
+
 	vi.OnConfigChange(func(e fsnotify.Event) {
 		l := logging.NewLogger("OnConfigChange")
 		l.Info().Str("config", e.Name).Msg("Reloading configuration")
@@ -91,6 +98,10 @@ func main() {
 	err := configChange(vi, gotoConfig, loadConfig)
 	if err != nil {
 		l.Fatal().Err(err).Msg("Unable to load config")
+	}
+
+	for _, s := range gotoConfig.Senders {
+		l.Debug().Object("configured_sender", s).Send()
 	}
 
 	// Main loop, ctrl+c or kill -15 to stop
@@ -133,8 +144,8 @@ func handleFlags() gotomationFlags {
 	flag.BoolVar(&gotoFlags.Version, "version", false, "Display Version and exit")
 	flag.StringVarP(&gotoFlags.ConfigFile, "config", "c", "gotomation.yaml", "Specify configuration file to use")
 	flag.StringVarP(&gotoFlags.Verbosity, "verbosity", "v", "info", "Specify log's Verbosity")
-	flag.StringVarP(&gotoFlags.HassToken, "token", "t", "", "Specify token to use for Home Assistant API calls")
-	flag.StringSliceVar(&gotoFlags.SenderConfig, "senderConfig", []string{}, "Specify custom sender config as base64 json (multiple --configSender possible)")
+	flag.StringVarP(&gotoFlags.HassToken, "token", "t", "", "Specify token to use for Home Assistant API calls, (env var HASS_TOKEN)")
+	flag.StringSliceVar(&gotoFlags.SenderConfig, "senderConfig", []string{}, "Specify custom sender config as base64 json (multiple --configSender possible). This can be set by the env var SENDER_CONFIGS as a comma serparated string")
 
 	flag.Parse()
 
