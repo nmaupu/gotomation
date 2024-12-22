@@ -53,7 +53,7 @@ local gitRefresherContainer =
       cd /config/gotomation-config
       while [ 1 ]; do
         date
-        git fetch --all && git reset --hard "$BRANCH"
+        git fetch --all && git reset --hard origin/"$BRANCH"
         sleep "$INTERVAL"
       done
     ||| % [
