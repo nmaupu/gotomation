@@ -89,7 +89,10 @@ local mainContainer =
   + c.readinessProbe.withInitialDelaySeconds(1)
   + c.readinessProbe.withPeriodSeconds(2)
   + c.readinessProbe.httpGet.withPath('/health-ex')
-  + c.readinessProbe.httpGet.withPort(6265);
+  + c.readinessProbe.httpGet.withPort(6265)
+  + c.withPorts([{
+    containerPort: g.containerPort,
+  }]);
 
 d.new(
   'gotomation',
