@@ -339,6 +339,10 @@ loop:
 				l.Debug().Msg("Not authenticated yet, requeuing request")
 				c.requeueRequest(request, 1*time.Second)
 				continue
+			} else if c.Authenticated() && strings.HasPrefix(request.Data.GetType(), "auth") {
+				// We are already authenticated, no need to auth again or it will fail. Ignoring this message
+				l.Warn().Msg("A message to auth is about to be sent but we are already authenticated, ignoring.")
+				continue
 			}
 
 			// if c.conn is nil, something is wrong with the object (reloading config ?)
