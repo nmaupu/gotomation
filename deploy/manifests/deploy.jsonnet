@@ -64,11 +64,8 @@ local gitRefresherContainer =
 local mainContainer =
   c.withName('gotomation')
   + c.withImage('%s:%s' % [v.image.repository, v.image.tag])
-  + c.withArgs(
-    [
-      '--config=/config/gotomation-config/gotomation.yaml',
-    ]
-  )
+  + c.withCommand(['gotomation'])
+  + c.withArgs(['--config=/config/gotomation-config/gotomation.yaml'])
   + c.withWorkingDir('/config/gotomation-config')
   + c.withVolumeMounts(volumeMounts)
   + (if std.objectHas(v, 'existingSecretEnvVars') && std.length(v.existingSecretEnvVars) > 0 then
