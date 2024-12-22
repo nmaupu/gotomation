@@ -8,7 +8,7 @@ git:
   tag: 2.47.1
   gotomationConfig:
     repo: github.com/nmaupu/gotomation-config.git
-    branch: main
+    branch: master
     refreshIntervalSeconds: 60
 
 # Existing secret containing extra configuration.
