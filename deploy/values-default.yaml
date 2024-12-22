@@ -9,7 +9,7 @@ git:
   gotomationConfig:
     repo: github.com/nmaupu/gotomation-config.git
     branch: master
-    refreshIntervalSeconds: 10
+    refreshIntervalSeconds: 60
 
 # Existing secret containing extra configuration.
 # Can be used to pass sensitive information as env vars

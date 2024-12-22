@@ -36,6 +36,7 @@ local initContainer =
   ])
   + c.withVolumeMounts(volumeMounts);
 
+// TODO: Debug, it's not refreshing as expected
 local gitRefresherContainer =
   c.withName('git-refresher')
   + c.withImage('%s:%s' % [v.git.image, v.git.tag])
