@@ -64,6 +64,7 @@ local gitRefresherContainer =
 local mainContainer =
   c.withName('gotomation')
   + c.withImage('%s:%s' % [v.image.repository, v.image.tag])
+  + c.withImagePullPolicy(v.image.pullPolicy)
   + c.withCommand(['gotomation'])
   + c.withArgs([
     '--config=/config/gotomation-config/gotomation.yaml',

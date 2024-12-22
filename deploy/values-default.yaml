@@ -1,6 +1,7 @@
 image:
   repository: nmaupu/gotomation
   tag: main
+  pullPolicy: IfNotPresent
 
 git:
   image: bitnami/git

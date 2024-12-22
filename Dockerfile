@@ -1,4 +1,4 @@
-FROM scratch
+FROM gcr.io/distroless/static
 
 ARG GOTOMATION_VERSION
 ARG GOTOMATION_BIN_DIR
