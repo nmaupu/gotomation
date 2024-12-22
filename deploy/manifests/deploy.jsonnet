@@ -5,11 +5,9 @@ local v = import 'values.libsonnet';
 local d = k.apps.v1.deployment;
 local c = k.core.v1.container;
 
-local volumeMounts = [
+local volumeMountConfig =
   k.core.v1.volumeMount.withMountPath('/config')
-  + k.core.v1.volumeMount.withName('config')
-  + k.core.v1.volumeMount.withReadOnly(false),
-];
+  + k.core.v1.volumeMount.withName('config');
 
 local initContainer =
   c.withName('init')
@@ -35,7 +33,7 @@ local initContainer =
       v.git.gotomationConfig.branch,
     ],
   ])
-  + c.withVolumeMounts(volumeMounts);
+  + c.withVolumeMounts(volumeMountConfig);
 
 local gitRefresherContainer =
   c.withName('git-refresher')
@@ -68,7 +66,7 @@ local gitRefresherContainer =
       v.git.gotomationConfig.refreshIntervalSeconds,
     ],
   ])
-  + c.withVolumeMounts(volumeMounts);
+  + c.withVolumeMounts(volumeMountConfig);
 
 local mainContainer =
   c.withName('gotomation')
@@ -79,11 +77,19 @@ local mainContainer =
     '--config=/config/gotomation.yaml',
   ])
   + c.withWorkingDir('/config')
-  + c.withVolumeMounts(volumeMounts)
+  + c.withVolumeMounts(volumeMountConfig + k.core.v1.volumeMount.withReadOnly(true))
   + (if std.objectHas(v, 'existingSecretEnvVars') && std.length(v.existingSecretEnvVars) > 0 then
        c.withEnvFrom(k.core.v1.envFromSource.secretRef.withName(v.existingSecretEnvVars))
      else
-       {});
+       {})
+  + c.livenessProbe.withInitialDelaySeconds(3)
+  + c.livenessProbe.withPeriodSeconds(3)
+  + c.livenessProbe.httpGet.withPath('/health')
+  + c.livenessProbe.httpGet.withPort(6265)
+  + c.readinessProbe.withInitialDelaySeconds(1)
+  + c.readinessProbe.withPeriodSeconds(2)
+  + c.readinessProbe.httpGet.withPath('/health-ex')
+  + c.readinessProbe.httpGet.withPort(6265);
 
 d.new(
   'gotomation',

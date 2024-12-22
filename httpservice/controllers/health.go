@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/app"
+	"github.com/nmaupu/gotomation/httpclient"
 )
 
 type health struct {
@@ -13,11 +14,24 @@ type health struct {
 	Status    string `json:"status"`
 }
 
-// HealthHandler godoc
-func HealthHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, health{
+func newHealth(status int) health {
+	return health{
 		Version:   app.ApplicationVersion,
 		BuildDate: app.BuildDate,
-		Status:    http.StatusText(http.StatusOK),
-	})
+		Status:    http.StatusText(status),
+	}
+}
+
+// HealthHandler godoc
+func HealthHandler(c *gin.Context) {
+	c.JSON(http.StatusOK, newHealth(http.StatusOK))
+}
+
+// HealthExHandler godoc
+func HealthExHandler(c *gin.Context) {
+	status := http.StatusOK
+	if !httpclient.IsConnectedAndAuthenticated() {
+		status = http.StatusServiceUnavailable
+	}
+	c.JSON(status, newHealth(status))
 }

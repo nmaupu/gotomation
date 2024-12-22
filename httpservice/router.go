@@ -54,6 +54,7 @@ func InitHTTPServer(bindAddr string, port int, getExtraHandlers ...GinConfigHand
 
 	httpServer.router.Use(gin.Recovery())
 	httpServer.router.GET("/health", controllers.HealthHandler)
+	httpServer.router.GET("/health-ex", controllers.HealthExHandler)
 	httpServer.router.GET("/google-validate", controllers.GoogleWebTokenHandler)
 	httpServer.router.GET("/coords", controllers.CoordsHandler)
 	httpServer.router.GET("/sun", controllers.SunriseSunsetHandler)

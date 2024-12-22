@@ -339,7 +339,7 @@ func initZone(config *config.Gotomation) error {
 func initHTTPServer(config *config.Gotomation) {
 	//l := logging.NewLogger("initHTTPServer")
 
-	httpservice.InitHTTPServer("127.0.0.1", httpservice.DefaultHTTPPort)
+	httpservice.InitHTTPServer("0.0.0.0", httpservice.DefaultHTTPPort)
 	routines.AddRunnable(httpservice.HTTPServer())
 }
 

@@ -41,6 +41,8 @@ type WebSocketClient interface {
 	routines.Runnable
 	RegisterCallback(hassType string, f ResponseHandlerSignature, concreteType model.HassAPIObject)
 	SubscribeEvents(eventTypes ...string)
+	Authenticated() bool
+	Connected() bool
 }
 
 type webSocketClient struct {

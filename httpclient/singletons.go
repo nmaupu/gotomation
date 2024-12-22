@@ -64,3 +64,9 @@ func GetWebSocketClient() WebSocketClient {
 	defer mutexWebSocketClient.Unlock()
 	return wsc
 }
+
+func IsConnectedAndAuthenticated() bool {
+	mutexWebSocketClient.Lock()
+	defer mutexWebSocketClient.Unlock()
+	return wsc.Authenticated() && wsc.Connected()
+}
