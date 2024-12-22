@@ -2,10 +2,12 @@ package smarthome
 
 import (
 	"fmt"
-	"github.com/nmaupu/gotomation/smarthome/messaging"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
+
+	"github.com/nmaupu/gotomation/smarthome/messaging"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nmaupu/gotomation/app"
@@ -22,25 +24,25 @@ import (
 
 const (
 	// ModuleInternetChecker is a module to check the internet connection
-	ModuleInternetChecker = "internetChecker"
+	ModuleInternetChecker = "internetchecker"
 	// ModuleHeaterChecker is a module to set heater temperature
-	ModuleHeaterChecker = "heaterChecker"
+	ModuleHeaterChecker = "heaterchecker"
 	// ModuleCalendarChecker checks a calendar at regular interval
-	ModuleCalendarChecker = "calendarChecker"
+	ModuleCalendarChecker = "calendarchecker"
 	// ModuleFreshness checks at a regular interval if device has been last seen not too long ago
-	ModuleFreshness = "freshnessChecker"
+	ModuleFreshness = "freshnesschecker"
 	// ModuleTemperatureChecker checks at a regular interval if device exceeds a certain temperature and alert if it does
-	ModuleTemperatureChecker = "temperatureChecker"
+	ModuleTemperatureChecker = "temperaturechecker"
 	// TriggerDehumidifier triggers dehumidifier on or off depending on humidity
 	TriggerDehumidifier = "dehumidifier"
 	// TriggerHarmony uses Roku Emulated to make actions based on Harmony remote buttons press
 	TriggerHarmony = "harmony"
 	// TriggerCalendarLights set to on or off lights based on calendar events
-	TriggerCalendarLights = "calendarLights"
+	TriggerCalendarLights = "calendarlights"
 	// TriggerHeaterCheckersDisabler globally disables heaters' automatic programmation
-	TriggerHeaterCheckersDisabler = "heaterCheckersDisabler"
+	TriggerHeaterCheckersDisabler = "heatercheckerscisabler"
 	// TriggerRandomLights is a module to set on/off lights randomly between a specific time frame
-	TriggerRandomLights = "randomLights"
+	TriggerRandomLights = "randomlights"
 	// TriggerAlertBool is a module to send alerts to a specific sender depending on binary entity state change
 	TriggerAlertBool = "alert"
 )
@@ -193,7 +195,11 @@ func initTriggers(config *config.Gotomation) {
 	mTriggers = make(map[string][]core.Triggerable, 0)
 
 	for _, trigger := range config.Triggers {
-		for triggerName, triggerConfig := range trigger {
+		for tn, triggerConfig := range trigger {
+			// NOTE: due to an issue in Viper not being able to unmarshal map[string]any keys as case sensitive
+			// we force it lower cased. Consequently, if the bug is one day fixed, this will continue to work as expected
+			// See: https://github.com/spf13/viper/issues/1014
+			triggerName := strings.ToLower(tn)
 			trigger := new(core.Trigger)
 
 			// Getting the action from the existing list

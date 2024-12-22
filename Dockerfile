@@ -1,4 +1,4 @@
-FROM gcr.io/distroless/static
+FROM gcr.io/distroless/base
 
 ARG GOTOMATION_VERSION
 ARG GOTOMATION_BIN_DIR
