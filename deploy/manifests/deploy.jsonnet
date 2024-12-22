@@ -24,6 +24,7 @@ local initContainer =
       REPO="%s"
       BRANCH="%s"
 
+      date
       cd /config
       git clone "https://$REPO" gotomation-config
       cd gotomation-config
@@ -51,6 +52,7 @@ local gitRefresherContainer =
 
       cd /config/gotomation-config
       while [ 1 ]; do
+        date
         git fetch --all && git reset --hard "$BRANCH"
         sleep "$INTERVAL"
       done
