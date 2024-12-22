@@ -68,7 +68,6 @@ local mainContainer =
   + c.withCommand(['gotomation'])
   + c.withArgs([
     '--config=/config/gotomation-config/gotomation.yaml',
-    '--verbosity=debug',
   ])
   + c.withWorkingDir('/config/gotomation-config')
   + c.withVolumeMounts(volumeMounts)
@@ -87,6 +86,8 @@ d.new(
 )
 + d.metadata.withLabels(g.labels)
 + d.spec.template.spec.withInitContainers(initContainer)
-+ d.spec.selector.withMatchLabels(g.labels)
++ d.spec.selector.withMatchLabels({
+  'app.kubernetes.io/name': 'gotomation',
+})
 + d.spec.template.metadata.withLabels(g.labels)
 + d.spec.template.spec.withVolumes(k.core.v1.volume.fromEmptyDir('config'))
