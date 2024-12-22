@@ -11,31 +11,6 @@ local volumeMounts = [
   + k.core.v1.volumeMount.withReadOnly(false),
 ];
 
-local initContainer =
-  c.withName('init')
-  + c.withImage('%s:%s' % [v.git.image, v.git.tag])
-  + c.withCommand([
-    'bash',
-    '-c',
-    |||
-      set -e
-      set -o pipefail
-      set -x
-      REPO="%s"
-      BRANCH="%s"
-
-      date
-      cd /config
-      git clone "https://$REPO" gotomation-config
-      cd gotomation-config
-      git checkout "$BRANCH"
-    ||| % [
-      v.git.gotomationConfig.repo,
-      v.git.gotomationConfig.branch,
-    ],
-  ])
-  + c.withVolumeMounts(volumeMounts);
-
 // TODO: Debug, it's not refreshing as expected
 local gitRefresherContainer =
   c.withName('git-refresher')
@@ -51,10 +26,18 @@ local gitRefresherContainer =
       BRANCH="%s"
       INTERVAL="%d"
 
-      cd /config/gotomation-config
+      date
+
+      apt update; apt install -y rsync
+      git clone "https://$REPO" /tmp/gotomation-config
+      cd /tmp/gotomation-config
+      git checkout "$BRANCH"
+
       while [ 1 ]; do
         date
-        git fetch --all && git reset --hard origin/"$BRANCH"
+        git fetch --all && \
+        git reset --hard origin/"$BRANCH"
+        rsync -a --delete /tmp/gotomation-config/ /config
         sleep "$INTERVAL"
       done
     ||| % [
@@ -88,7 +71,6 @@ d.new(
   ],
 )
 + d.metadata.withLabels(g.labels)
-+ d.spec.template.spec.withInitContainers(initContainer)
 + d.spec.selector.withMatchLabels({
   'app.kubernetes.io/name': 'gotomation',
 })
