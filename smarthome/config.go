@@ -40,7 +40,7 @@ const (
 	// TriggerCalendarLights set to on or off lights based on calendar events
 	TriggerCalendarLights = "calendarlights"
 	// TriggerHeaterCheckersDisabler globally disables heaters' automatic programmation
-	TriggerHeaterCheckersDisabler = "heatercheckerscisabler"
+	TriggerHeaterCheckersDisabler = "heatercheckersdisabler"
 	// TriggerRandomLights is a module to set on/off lights randomly between a specific time frame
 	TriggerRandomLights = "randomlights"
 	// TriggerAlertBool is a module to send alerts to a specific sender depending on binary entity state change
