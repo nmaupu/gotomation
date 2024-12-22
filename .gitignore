@@ -21,3 +21,4 @@ bin/
 gotomation.yaml
 release/
 deploy/vendor
+debug.el
