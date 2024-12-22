@@ -2,10 +2,20 @@ version: 2.1
 executors:
   golang-executor:
     environment:
-        - ORG_NAME: nmaupu
-        - PROJECT_NAME: gotomation
+      - ORG_NAME: nmaupu
+      - PROJECT_NAME: gotomation
     docker:
       - image: cimg/go:1.23.4
+    working_directory: /home/circleci/go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
+  docker-executor:
+    environment:
+      - ORG_NAME: nmaupu
+      - PROJECT_NAME: gotomation
+    docker:
+      - image: cimg/base:2022.09
+        auth:
+          username: $DOCKERHUB_USERNAME
+          password: $DOCKERHUB_PASSWORD
     working_directory: /home/circleci/go/src/github.com/{{ORG_NAME}}/{{REPO_NAME}}
 
 # https://circleci.com/docs/2.0/reusing-config
@@ -13,30 +23,43 @@ executors:
 commands:
   cmd_compile:
     description: Compile gotomation binary file
-    parameters:
-      release_name:
-        type: string
-        default: "main"
     steps:
       - checkout
       - run:
           name: Compilation
           command: |
-            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=linux  GOARCH=amd64 make build
-            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=linux  GOARCH=arm GOARM=5 make build
-            RELEASE_NAME=<< parameters.release_name >> BIN_DIR=release GOOS=darwin GOARCH=amd64 make build
+            BIN_DIR=release GOOS=linux  GOARCH=amd64 make build
+            BIN_DIR=release GOOS=linux  GOARCH=arm GOARM=5 make build
+            BIN_DIR=release GOOS=darwin GOARCH=amd64 make build
       - save_cache:
           name: Saving compiled binary to cache
           key: release-{{ .Revision }}-{{ .Branch }}-{{ .Environment.CIRCLE_TAG }}
           paths:
             - release
+  docker_build_push:
+    description: Build and push gotomation docker image
+    steps:
+      - checkout
+      - setup_remote_docker:
+          docker_layer_caching: true
+      - restore_cache:
+          keys:
+            - release-{{ .Revision }}-{{ .Branch }}-{{ .Environment.CIRCLE_TAG }}
+      - run:
+          name: building and pushing
+          command: |
+            echo "${DOCKERHUB_PASSWORD}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+            BIN_DIR=release make docker
 
 jobs:
   prepare-release:
     executor: golang-executor
     steps:
-      - cmd_compile:
-          release_name: ${CIRCLE_TAG}
+      - cmd_compile
+  docker-image:
+    executor: docker-executor
+    steps:
+      - docker_build_push
   release-github:
     executor: golang-executor
     steps:
@@ -56,9 +79,20 @@ workflows:
   branch:
     jobs:
       - prepare-release
+      - docker-image:
+          requires:
+            - prepare-release
   release:
     jobs:
       - prepare-release:
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^\d+\.\d+\.\d+$/
+      - docker-image:
+          requires:
+            - prepare-release
           filters:
             branches:
               ignore: /.*/

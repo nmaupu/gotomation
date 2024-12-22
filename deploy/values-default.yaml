@@ -1,6 +1,6 @@
 image:
   repository: nmaupu/gotomation
-  tag: latest
+  tag: main
 
 git:
   image: bitnami/git
