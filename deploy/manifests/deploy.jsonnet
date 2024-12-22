@@ -14,6 +14,7 @@ local volumeMounts = [
 local initContainer =
   c.withName('init')
   + c.withImage('%s:%s' % [v.git.image, v.git.tag])
+  + c.withImagePullPolicy(v.git.pullPolicy)
   + c.withCommand([
     'bash',
     '-c',
@@ -25,9 +26,9 @@ local initContainer =
       BRANCH="%s"
 
       date
-      cd /config
-      git clone "https://$REPO" gotomation-config
-      cd gotomation-config
+      git clone "https://$REPO" /tmp/gotomation-config
+      rsync -ai --checksum --omit-dir-times --no-p --delete /tmp/gotomation-config/ /config
+      cd /tmp/gotomation-config
       git checkout "$BRANCH"
     ||| % [
       v.git.gotomationConfig.repo,
@@ -36,10 +37,10 @@ local initContainer =
   ])
   + c.withVolumeMounts(volumeMounts);
 
-// TODO: Debug, it's not refreshing as expected
 local gitRefresherContainer =
   c.withName('git-refresher')
   + c.withImage('%s:%s' % [v.git.image, v.git.tag])
+  + c.withImagePullPolicy(v.git.pullPolicy)
   + c.withCommand([  // This script refresh the git repository configured branch at a regular interval
     'bash',
     '-c',
@@ -48,16 +49,21 @@ local gitRefresherContainer =
       set -o pipefail
       set -x
 
+      REPO="%s"
       BRANCH="%s"
       INTERVAL="%d"
 
-      cd /config/gotomation-config
+      date
+      git clone "https://$REPO" /tmp/gotomation-config
+      cd /tmp/gotomation-config
       while [ 1 ]; do
         date
         git fetch --all && git reset --hard origin/"$BRANCH"
+        rsync -ai --checksum --omit-dir-times --no-p --delete /tmp/gotomation-config/ /config
         sleep "$INTERVAL"
       done
     ||| % [
+      v.git.gotomationConfig.repo,
       v.git.gotomationConfig.branch,
       v.git.gotomationConfig.refreshIntervalSeconds,
     ],
@@ -70,9 +76,9 @@ local mainContainer =
   + c.withImagePullPolicy(v.image.pullPolicy)
   + c.withCommand(['gotomation'])
   + c.withArgs([
-    '--config=/config/gotomation-config/gotomation.yaml',
+    '--config=/config/gotomation.yaml',
   ])
-  + c.withWorkingDir('/config/gotomation-config')
+  + c.withWorkingDir('/config')
   + c.withVolumeMounts(volumeMounts)
   + (if std.objectHas(v, 'existingSecretEnvVars') && std.length(v.existingSecretEnvVars) > 0 then
        c.withEnvFrom(k.core.v1.envFromSource.secretRef.withName(v.existingSecretEnvVars))

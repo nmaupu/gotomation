@@ -4,8 +4,9 @@ image:
   pullPolicy: IfNotPresent
 
 git:
-  image: bitnami/git
-  tag: 2.47.1
+  image: nmaupu/argocd-cmp-jsonnet
+  tag: 0.20.0
+  pullPolicy: Always
   gotomationConfig:
     repo: github.com/nmaupu/gotomation-config.git
     branch: master
