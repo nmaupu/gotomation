@@ -1,4 +1,5 @@
 local k = import 'github.com/jsonnet-libs/k8s-libsonnet/1.30/main.libsonnet';
+
 local g = import 'globals.libsonnet';
 local v = import 'values.libsonnet';
 
@@ -77,6 +78,9 @@ local mainContainer =
     '--config=/config/gotomation.yaml',
   ])
   + c.withWorkingDir('/config')
+  + c.withEnv([
+    {name: 'TZ', value: v.timezone}
+  ])
   + c.withVolumeMounts(volumeMountConfig + k.core.v1.volumeMount.withReadOnly(true))
   + (if std.objectHas(v, 'existingSecretEnvVars') && std.length(v.existingSecretEnvVars) > 0 then
        c.withEnvFrom(k.core.v1.envFromSource.secretRef.withName(v.existingSecretEnvVars))

@@ -1,3 +1,5 @@
+timezone: Europe/Paris
+
 image:
   repository: nmaupu/gotomation
   tag: main
