@@ -19,12 +19,19 @@ local initContainer =
     '-c',
     |||
       set -e
-      set -o pipefail
       set -x
+      set -o pipefail
       REPO="%s"
       BRANCH="%s"
 
       date
+      # Ensure pod is starting when there is a network outage and already a config.
+      # First pod boot need internet though.
+      if [ -e "/config/gotomation.yaml" ]; then
+        echo "Configuration already exists, skipping."
+        exit 0
+      fi
+
       git clone "https://$REPO" /tmp/gotomation-config
       rsync -ai --checksum --omit-dir-times --no-p --delete /tmp/gotomation-config/ /config
       cd /tmp/gotomation-config
@@ -44,8 +51,6 @@ local gitRefresherContainer =
     'bash',
     '-c',
     |||
-      set -e
-      set -o pipefail
       set -x
 
       REPO="%s"
@@ -53,12 +58,18 @@ local gitRefresherContainer =
       INTERVAL="%d"
 
       date
-      git clone "https://$REPO" /tmp/gotomation-config
-      cd /tmp/gotomation-config
       while [ 1 ]; do
         date
-        git fetch --all && git reset --hard origin/"$BRANCH"
-        rsync -ai --checksum --omit-dir-times --no-p --delete /tmp/gotomation-config/ /config
+        # Cloning if needed
+        if [ ! -e "/tmp/gotomation-config" ]; then
+          git clone "https://$REPO" /tmp/gotomation-config && \
+            cd /tmp/gotomation-config
+        fi
+        # Refreshing
+        if [ -e "/tmp/gotomation-config" ]; then
+          git fetch --all && git reset --hard origin/"$BRANCH" && \
+            rsync -ai --checksum --omit-dir-times --no-p --delete /tmp/gotomation-config/ /config
+        fi
         sleep "$INTERVAL"
       done
     ||| % [
@@ -79,7 +90,7 @@ local mainContainer =
   ])
   + c.withWorkingDir('/config')
   + c.withEnv([
-    {name: 'TZ', value: v.timezone}
+    { name: 'TZ', value: v.timezone },
   ])
   + c.withVolumeMounts(volumeMountConfig + k.core.v1.volumeMount.withReadOnly(true))
   + (if std.objectHas(v, 'existingSecretEnvVars') && std.length(v.existingSecretEnvVars) > 0 then
@@ -112,4 +123,6 @@ d.new(
   'app.kubernetes.io/name': 'gotomation',
 })
 + d.spec.template.metadata.withLabels(g.labels)
-+ d.spec.template.spec.withVolumes(k.core.v1.volume.fromEmptyDir('config'))
++ d.spec.template.spec.withVolumes(
+  k.core.v1.volume.fromPersistentVolumeClaim('config', 'gotomation-config')
+)

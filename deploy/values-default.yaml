@@ -8,7 +8,7 @@ image:
 git:
   image: nmaupu/argocd-cmp-jsonnet
   tag: 0.20.0
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
   gotomationConfig:
     repo: github.com/nmaupu/gotomation-config.git
     branch: master
@@ -23,3 +23,6 @@ gotomation:
   config:
     repo: https://github.com/nmaupu/gotomation-config
     branch: master
+    pvc:
+      storageClassName: myStorageClass
+      size: 10Mi
