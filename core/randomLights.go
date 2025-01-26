@@ -86,6 +86,15 @@ func (r *randomLightsRoutine) Start() error {
 	r.autoLightRoutineDone = make(chan bool, 1)
 	r.autoLightsCh = make(chan autoLight) // main chan to process messages
 
+	// Setting all lights to off before starting
+	for _, light := range r.lights {
+		err := httpclient.GetSimpleClient().CallService(light.Entity, "turn_off", nil)
+		if err != nil {
+			l.Error().Err(err).EmbedObject(light.Entity).Msg("unable to turn_off light")
+			// here we ignore the error, log only to get a trace of the issue
+		}
+	}
+
 	// Starting autoLightRoutine which listens for incoming messages
 	app.RoutinesWG.Add(1)
 	go func() {
