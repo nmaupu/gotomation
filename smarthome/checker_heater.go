@@ -67,6 +67,44 @@ func (h *HeaterChecker) Check() {
 		return
 	}
 
+	now := time.Now()
+
+	// Getting last seen entity for this climate
+	if h.schedules.LastSeen.Enabled {
+		lastSeenEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.LastSeen.Entity.Domain, h.schedules.LastSeen.Entity.EntityID)
+		if err != nil {
+			l.Error().Err(err).
+				Str("entity", h.schedules.LastSeen.Entity.GetEntityIDFullName()).
+				Msg("Error getting last_seen entity, cannot set temperature")
+			return
+		}
+		lastSeenTime, err := time.Parse(time.RFC3339, lastSeenEntity.State.State)
+		if err != nil {
+			l.Warn().Err(err).
+				Str("last_seen_state", lastSeenEntity.State.State).
+				Str("entity", h.schedules.LastSeen.Entity.GetEntityIDFullName()).
+				Msg("Unable to parse last_seen value")
+			return
+		}
+		if lastSeenTime.Add(h.schedules.LastSeen.OfflineAfter).Before(now) {
+			l.Warn().
+				Dur("duration", h.schedules.LastSeen.OfflineAfter).
+				Str("entity", h.schedules.LastSeen.Entity.GetEntityIDFullName()).
+				Msg("Entity has not been seen, setting it to off")
+			if err := httpclient.GetSimpleClient().CallService(climateEntity, climateTurnOffService, map[string]interface{}{}); err != nil {
+				l.Error().Err(err).
+					Str("entity", climateEntity.GetEntityIDFullName()).
+					Msg("Cannot turn off climate")
+			}
+			return
+		}
+		l.Info().
+			Str("entity", h.schedules.LastSeen.Entity.GetEntityIDFullName()).
+			Dur("duration", h.schedules.LastSeen.OfflineAfter).
+			Time("last_seen", lastSeenTime).
+			Msg("Entity has been seen soon enough, continuing setting temperature")
+	}
+
 	// Getting manual override status
 	overrideEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.ManualOverride.Domain, h.schedules.ManualOverride.EntityID)
 	if err != nil {
@@ -85,7 +123,6 @@ func (h *HeaterChecker) Check() {
 	}
 
 	// Checking for dates first
-	now := time.Now()
 	if h.schedules.DateBegin.After(now) && h.schedules.DateEnd.Before(now) {
 		l.Debug().
 			Time("current", now).

@@ -32,9 +32,9 @@ var (
 
 // SchedulesDays are the days when the schedules applies
 // Examples:
-//  - week
-//  - monday,tuesday,friday
-//  - monday,wednesday,weekend
+//   - week
+//   - monday,tuesday,friday
+//   - monday,wednesday,weekend
 type SchedulesDays string
 
 // HeaterSchedules stores all schedules for a heater
@@ -42,9 +42,14 @@ type HeaterSchedules struct {
 	Scheds         map[SchedulesDays][]HeaterSchedule `mapstructure:"schedules"`
 	DefaultEco     float64                            `mapstructure:"default_eco"`
 	ManualOverride model.HassEntity                   `mapstructure:"manual_override"`
-	Thermostat     model.HassEntity                   `mapstructure:"thermostat"`
-	DateBegin      model.DayMonthDate                 `mapstructure:"date_begin"`
-	DateEnd        model.DayMonthDate                 `mapstructure:"date_end"`
+	LastSeen       struct {
+		Enabled      bool             `mapstructure:"enabled"`
+		Entity       model.HassEntity `mapstructure:"entity"`
+		OfflineAfter time.Duration    `mapstructure:"offline_after"`
+	} `mapstructure:"last_seen"`
+	Thermostat model.HassEntity   `mapstructure:"thermostat"`
+	DateBegin  model.DayMonthDate `mapstructure:"date_begin"`
+	DateEnd    model.DayMonthDate `mapstructure:"date_end"`
 }
 
 // HeaterSchedule represents a heater's schedule
