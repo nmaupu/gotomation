@@ -69,6 +69,13 @@ func (h *HeaterChecker) Check() {
 
 	now := time.Now()
 
+	// Getting climate entity
+	climateEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.Thermostat.Domain, h.schedules.Thermostat.EntityID)
+	if err != nil {
+		l.Error().Err(err).Msg("Unable to get current thermostat temperature")
+		return
+	}
+
 	// Getting last seen entity for this climate
 	if h.schedules.LastSeen.Enabled {
 		lastSeenEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.LastSeen.Entity.Domain, h.schedules.LastSeen.Entity.EntityID)
@@ -112,13 +119,6 @@ func (h *HeaterChecker) Check() {
 	}
 	if overrideEntity.State.IsON() {
 		l.Debug().Msg("manual_override is on, nothing to do")
-		return
-	}
-
-	// Getting current temperature
-	climateEntity, err := httpclient.GetSimpleClient().GetEntity(h.schedules.Thermostat.Domain, h.schedules.Thermostat.EntityID)
-	if err != nil {
-		l.Error().Err(err).Msg("Unable to get current thermostat temperature")
 		return
 	}
 
