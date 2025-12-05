@@ -42,7 +42,7 @@ type Gotomation struct {
 
 // Validate indicates whether or not the config is valid for gotomation to run
 func (g Gotomation) Validate() bool {
-	return g.HomeAssistant.Host != "" && g.HomeAssistant.Token != ""
+	return !g.HomeAssistant.Enabled || (g.HomeAssistant.Host != "" && g.HomeAssistant.Token != "")
 }
 
 // ReadConfigFromFile loads or reloads config from viper's config file

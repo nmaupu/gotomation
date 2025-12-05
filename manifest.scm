@@ -1,4 +1,4 @@
 (use-modules (guix packages)
 	     (gnu packages golang))
 
-(packages->manifest (list go-1.22))
+(packages->manifest (list go-1.25))

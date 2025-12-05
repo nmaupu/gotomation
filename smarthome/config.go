@@ -33,6 +33,8 @@ const (
 	ModuleFreshness = "freshnesschecker"
 	// ModuleTemperatureChecker checks at a regular interval if device exceeds a certain temperature and alert if it does
 	ModuleTemperatureChecker = "temperaturechecker"
+	// ModuleOpenMQTTGatewayWBListChecker registers devices' macs' white/black list as MQTT configs at a regular interval
+	ModuleOpenMQTTGatewayWBListChecker = "openmqttgatewaywblistchecker"
 	// TriggerDehumidifier triggers dehumidifier on or off depending on humidity
 	TriggerDehumidifier = "dehumidifier"
 	// TriggerHarmony uses Roku Emulated to make actions based on Harmony remote buttons press
@@ -63,6 +65,9 @@ var (
 		},
 		ModuleTemperatureChecker: func() core.Modular {
 			return new(TemperatureChecker)
+		},
+		ModuleOpenMQTTGatewayWBListChecker: func() core.Modular {
+			return new(OpenMQTTGatewayWBListChecker)
 		},
 	}
 
@@ -142,16 +147,18 @@ func initHTTPClients(config *config.Gotomation) {
 	}
 	httpclient.InitSimpleClient(simpleClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token, config.HomeAssistant.HealthCheckEntities)
 
-	websocketClientScheme := "wss"
-	if !config.HomeAssistant.TLSEnabled {
-		websocketClientScheme = "ws"
-	}
-	httpclient.InitWebSocketClient(websocketClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token)
-	routines.AddRunnable(httpclient.GetWebSocketClient())
+	if config.HomeAssistant.Enabled {
+		websocketClientScheme := "wss"
+		if !config.HomeAssistant.TLSEnabled {
+			websocketClientScheme = "ws"
+		}
+		httpclient.InitWebSocketClient(websocketClientScheme, config.HomeAssistant.Host, config.HomeAssistant.Token)
+		routines.AddRunnable(httpclient.GetWebSocketClient())
 
-	// Adding callbacks for server communication, start and subscribe to events
-	httpclient.GetWebSocketClient().RegisterCallback("event", EventCallback, model.HassEvent{})
-	httpclient.GetWebSocketClient().SubscribeEvents(config.HomeAssistant.SubscribeEvents...)
+		// Adding callbacks for server communication, start and subscribe to events
+		httpclient.GetWebSocketClient().RegisterCallback("event", EventCallback, model.HassEvent{})
+		httpclient.GetWebSocketClient().SubscribeEvents(config.HomeAssistant.SubscribeEvents...)
+	}
 }
 
 func initGoogle(config *config.Gotomation) {
@@ -320,6 +327,11 @@ func initCrons(config *config.Gotomation) {
 
 func initZone(config *config.Gotomation) error {
 	l := logging.NewLogger("initZone")
+
+	if !config.HomeAssistant.Enabled {
+		l.Warn().Msg("Home Assistant is disabled, skipping.")
+		return nil
+	}
 
 	var err error
 	err = core.InitCoordinates(config.HomeAssistant.HomeZoneName)

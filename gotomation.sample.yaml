@@ -1,6 +1,7 @@
 log_level: debug
 
 home_assistant:
+  enabled: true
   host: hass.home.fossar.net:8123
   tls_enabled: true
   health_check_entities:
@@ -62,7 +63,25 @@ modules:
       template: |
         Les sensors suivants ont une température excédant la limite:
         {{ JoinEntities .Entities "\n" "_hum_temp_temperature"}}
-
+  - OpenMQTTGatewayWBListChecker:
+      enabled: true
+      interval: 1h
+      mqtt:
+        broker: tcp://localhost:1883
+        username: mqtt
+        password: mqtt
+        topicPrefix: home
+      blacklist:
+        - gateway: BLE_living
+          macs:
+            - 12:34:56:78:90
+      whitelist:
+        - gateway: BLE_living
+          macs:
+            - AA:BB:CC:DD:EE:FF
+        - gateway: BLE_basement
+          macs:
+            - 00:11:22:33:44:55
 
 triggers:
   - alert:

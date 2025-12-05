@@ -3,6 +3,7 @@ package config
 import "github.com/nmaupu/gotomation/model"
 
 type HomeAssistantConfig struct {
+	Enabled             bool               `mapstructure:"enabled"`
 	Host                string             `mapstructure:"host"`
 	Token               string             `mapstructure:"token"`
 	SubscribeEvents     []string           `mapstructure:"subscribe_events"`
