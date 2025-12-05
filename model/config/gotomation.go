@@ -27,17 +27,20 @@ type Gotomation struct {
 	// HomeAssistant server related options
 	HomeAssistant HomeAssistantConfig `mapstructure:"home_assistant"`
 
+	// OMG related config
+	OpenMQTTGateway OpenMQTTGatewayConfig `mapstructure:"open_mqtt_gateway"`
+
 	// Senders configures all sender configuration
 	Senders []SenderConfig `mapstructure:"senders"`
 
 	// Modules configuration
-	Modules []map[string]interface{} `mapstructure:"modules"`
+	Modules []map[string]any `mapstructure:"modules"`
 
 	// Triggers configuration
-	Triggers []map[string]interface{} `mapstructure:"triggers"`
+	Triggers []map[string]any `mapstructure:"triggers"`
 
 	// Crons configuration
-	Crons []interface{} `mapstructure:"crons"`
+	Crons []any `mapstructure:"crons"`
 }
 
 // Validate indicates whether or not the config is valid for gotomation to run
@@ -86,7 +89,7 @@ func MapstructureDecodeHookFunc() mapstructure.DecodeHookFunc {
 }
 
 // NewMapstructureDecoder returns a new mapstructure.Decoder ready to read Gotomation configuration
-func NewMapstructureDecoder(result interface{}) *mapstructure.Decoder {
+func NewMapstructureDecoder(result any) *mapstructure.Decoder {
 	decoderConfig := &mapstructure.DecoderConfig{
 		DecodeHook: MapstructureDecodeHookFunc(),
 		Result:     result,

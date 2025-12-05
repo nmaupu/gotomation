@@ -95,11 +95,12 @@ var (
 
 var (
 	// mutex is used to lock maps' access by one goroutine only
-	mutex     sync.RWMutex
-	mCheckers map[string][]core.Checkable
-	mTriggers map[string][]core.Triggerable
-	crontab   core.Crontab
-	mSenders  map[string]messaging.Sender
+	mutex      sync.RWMutex
+	mCheckers  map[string][]core.Checkable
+	mTriggers  map[string][]core.Triggerable
+	crontab    core.Crontab
+	mSenders   map[string]messaging.Sender
+	mOMGConfig *config.OpenMQTTGatewayConfig
 )
 
 // Init inits checkers from configuration
@@ -124,6 +125,7 @@ func Init(config config.Gotomation) error {
 	initTriggers(&config)
 	initCheckers(&config)
 	initCrons(&config)
+	initOMGConfig(&config)
 	routines.StartAllRunnables()
 	return nil
 }
@@ -325,6 +327,10 @@ func initCrons(config *config.Gotomation) {
 	}
 }
 
+func initOMGConfig(config *config.Gotomation) {
+	mOMGConfig = &config.OpenMQTTGateway
+}
+
 func initZone(config *config.Gotomation) error {
 	l := logging.NewLogger("initZone")
 
@@ -440,4 +446,10 @@ func GetSender(name string) messaging.Sender {
 	} else {
 		return sender
 	}
+}
+
+func GetOMGConfig() config.OpenMQTTGatewayConfig {
+	mutex.RLock()
+	defer mutex.RUnlock()
+	return *mOMGConfig
 }

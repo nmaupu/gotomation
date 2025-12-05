@@ -12,6 +12,13 @@ home_assistant:
     - roku_command
   home_zone_name: home # Get latitude and longitude from configured zone
 
+open_mqtt_gateway:
+  mqtt:
+   username: mqtt
+   password: password
+   broker: tcp://localhost:1883
+   prefix: home
+
 # Or pass it as param with --senderConfig 'base64 encoded json' --senderConfig 'base64 encoded json' ...
 senders:
   - name: telegram
@@ -66,11 +73,7 @@ modules:
   - OpenMQTTGatewayWBListChecker:
       enabled: true
       interval: 1h
-      mqtt:
-        broker: tcp://localhost:1883
-        username: mqtt
-        password: mqtt
-        topicPrefix: home
+      # mqtt config are at the root under openmqttgateway key
       blacklist:
         - gateway: BLE_living
           macs:

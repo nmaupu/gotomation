@@ -24,30 +24,27 @@ type gatewayMacs struct {
 // OpenMQTTGatewayWBListChecker module registers white/black list on a regular interval
 type OpenMQTTGatewayWBListChecker struct {
 	core.Module `mapstructure:",squash"`
-	MQTT        struct {
-		Broker      string `mapstructure:"broker"`
-		Username    string `mapstructure:"username"`
-		Password    string `mapstructure:"password"`
-		TopicPrefix string `mapstructure:"topicPrefix"`
-	} `mapstructure:"mqtt"`
-	BlackList []gatewayMacs `mapstructure:"blacklist"`
-	WhiteList []gatewayMacs `mapstructure:"whitelist"`
+	BlackList   []gatewayMacs `mapstructure:"blacklist"`
+	WhiteList   []gatewayMacs `mapstructure:"whitelist"`
 }
 
 // Check runs a single check
 func (c *OpenMQTTGatewayWBListChecker) Check() {
 	l := logging.NewLogger("OpenMQTTGatewayWBListChecker.Check")
 
+	omgConfig := GetOMGConfig()
+
 	// Handling connection to the broker
 	opts := mqtt.NewClientOptions()
-	opts.AddBroker(c.MQTT.Broker).
+	opts.AddBroker(omgConfig.MQTT.Broker).
 		SetClientID("gotomation_mqtt_client").
-		SetUsername(c.MQTT.Username).
-		SetPassword(c.MQTT.Password)
+		SetUsername(omgConfig.MQTT.Username).
+		SetPassword(omgConfig.MQTT.Password)
 	client := mqtt.NewClient(opts)
 	defer client.Disconnect(0)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		l.Error().Err(token.Error()).Msg("Unable to connect to the MQTT broker")
+		return
 	}
 
 	// local types
@@ -85,18 +82,18 @@ func (c *OpenMQTTGatewayWBListChecker) Check() {
 
 	for gw, v := range gwPayloads {
 		payloadJSON, _ := json.Marshal(v)
-		c.publishConfig(client, gw, string(payloadJSON))
+		c.publishConfig(client, omgConfig.MQTT.Prefix, gw, string(payloadJSON))
 	}
 }
 
-func (c *OpenMQTTGatewayWBListChecker) publishConfig(client mqtt.Client, gw string, payload string) {
+func (c *OpenMQTTGatewayWBListChecker) publishConfig(client mqtt.Client, prefix string, gw string, payload string) {
 	l := logging.NewLogger("OpenMQTTGatewayWBListChecker.publishConfig").With().
 		Str("gateway", gw).
 		Str("payload", payload).Logger()
 
 	// -> home/gw/commands/MQTTtoBT/config
 	tok := client.Publish(
-		fmt.Sprintf("%s/%s/commands/MQTTtoBT/config", c.MQTT.TopicPrefix, gw), 0, true, payload)
+		fmt.Sprintf("%s/%s/commands/MQTTtoBT/config", prefix, gw), 0, true, payload)
 
 	if tok.WaitTimeout(time.Second * 5) {
 		l.Info().Msg("Config has been published")

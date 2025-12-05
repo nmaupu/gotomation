@@ -80,6 +80,10 @@ func main() {
 
 	// Binding some env var to config keys
 	vi.BindEnv("home_assistant.token", "HASS_TOKEN")
+	vi.BindEnv("open_mqtt_gateway.mqtt.username", "OMG_MQTT_USERNAME")
+	vi.BindEnv("open_mqtt_gateway.mqtt.password", "OMG_MQTT_PASSWORD")
+	vi.BindEnv("open_mqtt_gateway.mqtt.broker", "OMG_MQTT_BROKER")
+	vi.BindEnv("open_mqtt_gateway.mqtt.prefix", "OMG_MQTT_PREFIX")
 
 	vi.OnConfigChange(func(e fsnotify.Event) {
 		l := logging.NewLogger("OnConfigChange")
