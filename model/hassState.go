@@ -3,6 +3,7 @@ package model
 import (
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -14,12 +15,13 @@ const (
 
 // HassState represents a Home Assistant entity's state
 type HassState struct {
-	EntityID    string                 `json:"entity_id"`
-	LastChanged string                 `json:"last_changed"`
-	State       string                 `json:"state"`
-	Attributes  map[string]interface{} `json:"attributes"`
-	LastUpdated string                 `json:"last_updated"`
-	Context     HassContext            `json:"context"`
+	EntityID     string                 `json:"entity_id"`
+	LastChanged  time.Time              `json:"last_changed"`
+	LastUpdated  time.Time              `json:"last_updated"`
+	LastReported time.Time              `json:"last_reported"`
+	State        string                 `json:"state"`
+	Attributes   map[string]interface{} `json:"attributes"`
+	Context      HassContext            `json:"context"`
 }
 
 func (s HassState) String() string {

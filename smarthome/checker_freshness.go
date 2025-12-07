@@ -25,7 +25,7 @@ const (
 	DefaultFreshnessCheckerTemplateString = `The following entities have not been seen since {{ .Checker.Freshness }}: {{ JoinEntities .Entities ", " }}`
 )
 
-// FreshnessChecker checks freshness of devices against a duration (using last_seen property)
+// FreshnessChecker checks freshness of devices against a duration (using last_seen property (Zigbee2mqtt) or from last_reported value)
 type FreshnessChecker struct {
 	core.Module `mapstructure:",squash"`
 	// Entities are the entities returning device's last seen value
@@ -34,10 +34,12 @@ type FreshnessChecker struct {
 	Sender string `mapstructure:"sender"`
 	// Freshness configures the max allowed time a device has to be seen
 	Freshness time.Duration `mapstructure:"freshness"`
-	// TimeFormat sets the time format if different from default
+	// TimeFormat sets the time format if different from default - only when reading from State
 	TimeFormat string `mapstructure:"time_format"`
 	// Template to use for sending message to the sender
 	Template string `mapstructure:"template"`
+	// ReadFromLastReported reads from the last_reported value of the entity instead of directly from State
+	ReadFromLastReported bool `mapstructure:"read_from_last_reported"`
 }
 
 // Check runs a single check
@@ -64,14 +66,19 @@ func (c *FreshnessChecker) Check() {
 			continue
 		}
 
-		lastSeen, err := time.Parse(c.TimeFormat, hassEntity.State.State)
-		if err != nil {
-			l.Error().Err(err).
-				Object("entity", entity).
-				Str("last_seen", hassEntity.State.State).
-				Str("time_format", c.TimeFormat).
-				Msg("unable to parse last seen time")
-			continue
+		var lastSeen time.Time
+		if c.ReadFromLastReported {
+			lastSeen = hassEntity.State.LastReported
+		} else {
+			lastSeen, err = time.Parse(c.TimeFormat, hassEntity.State.State)
+			if err != nil {
+				l.Error().Err(err).
+					Object("entity", entity).
+					Str("last_seen", hassEntity.State.State).
+					Str("time_format", c.TimeFormat).
+					Msg("unable to parse last seen time")
+				continue
+			}
 		}
 
 		duration := now.Sub(lastSeen)

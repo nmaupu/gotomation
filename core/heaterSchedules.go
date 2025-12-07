@@ -43,9 +43,10 @@ type HeaterSchedules struct {
 	DefaultEco     float64                            `mapstructure:"default_eco"`
 	ManualOverride model.HassEntity                   `mapstructure:"manual_override"`
 	LastSeen       struct {
-		Enabled      bool             `mapstructure:"enabled"`
-		Entity       model.HassEntity `mapstructure:"entity"`
-		OfflineAfter time.Duration    `mapstructure:"offline_after"`
+		Enabled              bool             `mapstructure:"enabled"`
+		Entity               model.HassEntity `mapstructure:"entity"`
+		OfflineAfter         time.Duration    `mapstructure:"offline_after"`
+		ReadFromLastReported bool             `mapstructure:"read_from_last_reported"`
 	} `mapstructure:"last_seen"`
 	Thermostat model.HassEntity   `mapstructure:"thermostat"`
 	DateBegin  model.DayMonthDate `mapstructure:"date_begin"`

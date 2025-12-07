@@ -85,13 +85,18 @@ func (h *HeaterChecker) Check() {
 				Msg("Error getting last_seen entity, cannot set temperature")
 			return
 		}
-		lastSeenTime, err := time.Parse(time.RFC3339, lastSeenEntity.State.State)
-		if err != nil {
-			l.Warn().Err(err).
-				Str("last_seen_state", lastSeenEntity.State.State).
-				Str("entity", h.schedules.LastSeen.Entity.GetEntityIDFullName()).
-				Msg("Unable to parse last_seen value")
-			return
+		var lastSeenTime time.Time
+		if h.schedules.LastSeen.ReadFromLastReported {
+			lastSeenTime = lastSeenEntity.State.LastReported
+		} else {
+			lastSeenTime, err = time.Parse(time.RFC3339, lastSeenEntity.State.State)
+			if err != nil {
+				l.Warn().Err(err).
+					Str("last_seen_state", lastSeenEntity.State.State).
+					Str("entity", h.schedules.LastSeen.Entity.GetEntityIDFullName()).
+					Msg("Unable to parse last_seen value")
+				return
+			}
 		}
 		if lastSeenTime.Add(h.schedules.LastSeen.OfflineAfter).Before(now) {
 			l.Warn().
