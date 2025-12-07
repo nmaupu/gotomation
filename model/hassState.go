@@ -15,13 +15,13 @@ const (
 
 // HassState represents a Home Assistant entity's state
 type HassState struct {
-	EntityID     string                 `json:"entity_id"`
-	LastChanged  time.Time              `json:"last_changed"`
-	LastUpdated  time.Time              `json:"last_updated"`
-	LastReported time.Time              `json:"last_reported"`
-	State        string                 `json:"state"`
-	Attributes   map[string]interface{} `json:"attributes"`
-	Context      HassContext            `json:"context"`
+	EntityID     string         `json:"entity_id"`
+	LastChanged  time.Time      `json:"last_changed"`
+	LastUpdated  time.Time      `json:"last_updated"`
+	LastReported time.Time      `json:"last_reported"`
+	State        string         `json:"state"`
+	Attributes   map[string]any `json:"attributes"`
+	Context      HassContext    `json:"context"`
 }
 
 func (s HassState) String() string {
@@ -31,7 +31,7 @@ func (s HassState) String() string {
 // IsON returns true if State is set to 'on'
 // Is state is not set, state is considered OFF
 func (s HassState) IsON() bool {
-	return strings.ToLower(s.State) == strings.ToLower(StateON)
+	return strings.EqualFold(s.State, StateON)
 }
 
 // IsOFF returns true if State is set to 'off'

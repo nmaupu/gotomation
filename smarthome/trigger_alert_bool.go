@@ -67,13 +67,22 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 		tplString = t.MsgTemplate
 	}
 
+	l.Debug().
+		Str("old_state", event.Event.Data.OldState.State).
+		Str("new_state", event.Event.Data.NewState.State).
+		Str("entity_id", entity).
+		Msg("Entity state")
+
 	tmpl, err := template.New("messageSender").
 		Funcs(template.FuncMap{
-			"GetOldStateAttrAsBool": func(d model.HassEventData, attr string) bool {
-				return d.OldState.GetAttrAsBool(attr)
+			"IsStateChanged": func(d model.HassEventData) bool {
+				return !strings.EqualFold(d.OldState.State, d.NewState.State)
 			},
-			"GetNewStateAttrAsBool": func(d model.HassEventData, attr string) bool {
-				return d.NewState.GetAttrAsBool(attr)
+			"IsWet": func(d model.HassEventData) bool {
+				return d.NewState.IsON()
+			},
+			"IsDry": func(d model.HassEventData) bool {
+				return d.NewState.IsOFF()
 			},
 		}).
 		Parse(tplString)
