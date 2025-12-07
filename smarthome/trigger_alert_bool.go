@@ -71,11 +71,17 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 		Str("old_state", event.Event.Data.OldState.State).
 		Str("new_state", event.Event.Data.NewState.State).
 		Str("entity_id", entity).
+		Any("old_attrs", event.Event.Data.OldState.Attributes).
+		Any("new_attrs", event.Event.Data.NewState.Attributes).
 		Msg("Entity state")
 
 	tmpl, err := template.New("messageSender").
 		Funcs(template.FuncMap{
 			"IsStateChanged": func(d model.HassEventData) bool {
+				if !d.NewState.IsON() && !d.NewState.IsOFF() {
+					// device status is unknown or unavailable
+					return false
+				}
 				return !strings.EqualFold(d.OldState.State, d.NewState.State)
 			},
 			"IsWet": func(d model.HassEventData) bool {
