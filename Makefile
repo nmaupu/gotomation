@@ -38,7 +38,7 @@ test:
 	go test ./...
 
 .PHONY: docker
-docker: $(BIN_DIR)/$(BIN_NAME)
+docker:
 	docker build \
 		--build-arg GOTOMATION_VERSION=$(VERSION) \
 		--build-arg GOTOMATION_BIN_DIR=$(BIN_DIR) \
