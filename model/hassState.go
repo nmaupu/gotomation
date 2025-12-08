@@ -11,6 +11,10 @@ const (
 	StateON = "on"
 	// StateOFF is the string used when state is OFF
 	StateOFF = "off"
+	// StateUnknown is the string used when state is unknown
+	StateUnknown = "unknown"
+	// StateUnavailable is the string used when state is unavailable
+	StateUnavailable = "unavailable"
 )
 
 // HassState represents a Home Assistant entity's state
@@ -37,7 +41,19 @@ func (s HassState) IsON() bool {
 // IsOFF returns true if State is set to 'off'
 // Is state is not set, state is considered OFF
 func (s HassState) IsOFF() bool {
-	return !s.IsON()
+	return strings.EqualFold(s.State, StateOFF)
+}
+
+func (s HassState) IsUnknown() bool {
+	return strings.EqualFold(s.State, StateUnknown)
+}
+
+func (s HassState) IsUnavailable() bool {
+	return strings.EqualFold(s.State, StateUnavailable)
+}
+
+func (s HassState) IsUnknownOrUnavailable() bool {
+	return s.IsUnknown() || s.IsUnavailable()
 }
 
 // GetAttrAsBool returns the attribute as bool

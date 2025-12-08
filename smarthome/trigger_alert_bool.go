@@ -78,10 +78,15 @@ func (a *AlertTriggerBool) Trigger(event *model.HassEvent) {
 	tmpl, err := template.New("messageSender").
 		Funcs(template.FuncMap{
 			"IsStateChanged": func(d model.HassEventData) bool {
-				if !d.NewState.IsON() && !d.NewState.IsOFF() {
-					// device status is unknown or unavailable
+				if d.NewState.IsUnknownOrUnavailable() {
+					// device status is unknown or unavailable, ignoring
 					return false
 				}
+				// New state is on or off but the old state is unknown or unavailable
+				if d.OldState.IsUnknownOrUnavailable() {
+					return d.NewState.IsON() // act like old state is 'off' and trigger msg
+				}
+
 				return !strings.EqualFold(d.OldState.State, d.NewState.State)
 			},
 			"IsWet": func(d model.HassEventData) bool {
