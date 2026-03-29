@@ -1,4 +1,4 @@
-local k = import 'github.com/jsonnet-libs/k8s-libsonnet/1.30/main.libsonnet';
+local k = import 'github.com/jsonnet-libs/k8s-libsonnet/1.32/main.libsonnet';
 local g = import 'globals.libsonnet';
 local v = import 'values.libsonnet';
 
