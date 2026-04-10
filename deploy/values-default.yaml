@@ -20,6 +20,7 @@ git:
 existingSecretEnvVars: gotomation
 
 tolerations: []
+affinity: {}
 
 gotomation:
   config:

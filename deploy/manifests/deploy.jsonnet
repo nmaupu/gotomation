@@ -130,3 +130,7 @@ d.new(
      d.spec.template.spec.withTolerations(v.tolerations)
    else
      {})
++ (if std.objectHas(v, 'affinity') && std.length(v.affinity) > 0 then
+     { spec+: { template+: { spec+: { affinity: v.affinity } } } }
+   else
+     {})
