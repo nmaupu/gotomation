@@ -126,3 +126,7 @@ d.new(
 + d.spec.template.spec.withVolumes(
   k.core.v1.volume.fromPersistentVolumeClaim('config', 'gotomation-config')
 )
++ (if std.objectHas(v, 'tolerations') && std.length(v.tolerations) > 0 then
+     d.spec.template.spec.withTolerations(v.tolerations)
+   else
+     {})

@@ -19,6 +19,8 @@ git:
 # Each secret entry is the env var name and its related value
 existingSecretEnvVars: gotomation
 
+tolerations: []
+
 gotomation:
   config:
     repo: https://github.com/nmaupu/gotomation-config
